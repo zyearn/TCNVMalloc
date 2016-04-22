@@ -26,6 +26,8 @@ void *twork(void *arg) {
         printf("%p\n", m);
         free(m);
     }
+
+    return NULL;
 }
 
 
