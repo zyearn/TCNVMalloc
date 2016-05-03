@@ -12,7 +12,7 @@ void *twork(void *arg) {
 
     for (i=0; i<TIMES; i++) {
         m = nv_malloc(10);
-        printf("thread %d: m=%p\n", (int)arg, m);
+        printf("thread %zu: m=%p\n", (size_t)arg, m);
     }
 
     return NULL;
@@ -39,7 +39,9 @@ int main(int argc, char **argv) {
         }
     }
 
-    void *m = nv_malloc(10);
+    void *m;
+    m = nv_malloc(10);
+    m = nv_malloc(10);
 
     for (i=0; i<TDNUM; i++) {
         if (pthread_join(tid[i], NULL) < 0) {

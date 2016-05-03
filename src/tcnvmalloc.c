@@ -3,7 +3,7 @@
 
 /* Global metadata */
 pthread_once_t init_once = PTHREAD_ONCE_INIT;
-init_state global_state = UNINIT;
+thread_state_t global_state = UNINIT;
 pthread_key_t destructor;
 gpool_t gpool;
 
@@ -13,7 +13,7 @@ char sizemap[256];
 char sizemap2[128];
 
 /* threads */
-THREAD_LOCAL int thread_state = UNINIT;
+THREAD_LOCAL thread_state_t thread_state = UNINIT;
 THREAD_LOCAL lheap_t *local_heap = NULL;
 
 static void thread_init();
@@ -23,6 +23,7 @@ static void thread_exit();
 static void gpool_init();
 static void maps_init();
 static void *small_malloc(int size_cls);
+static void *large_malloc(size_t size);
 
 /* global pool operation */
 inline static void gpool_grow();
@@ -34,6 +35,9 @@ inline static void page_free(void *pos, size_t size);
 inline static lheap_t *acquire_lheap();
 inline static void *chunk_alloc_obj(chunkh_t *ch);
 inline static void chunk_init(chunkh_t *ch, int size_cls);
+inline static chunkh_t *chunk_extract_header(void *ptr);
+inline static void chunk_free_small(chunkh_t *ch, void *ptr);
+inline static void chunk_free_large(void *ptr);
 inline void lheap_replace_foreground(lheap_t *lh, int size_cls);
 
 /* implementation */
@@ -97,12 +101,12 @@ static void maps_init() {
 }
 
 static void thread_exit() {
-
+    //TODO: reclaim the memory space in local_heap
+    free(local_heap);
 }
 
 static void global_init() {
     pthread_key_create(&destructor, thread_exit);
-
     gpool_init();
     maps_init();
     global_state = INITED;
@@ -118,7 +122,9 @@ static void check_init() {
 }
 
 static void thread_init() {
+    /* make thread_exit executed when thread quit */
     pthread_setspecific(destructor, (void *)1);
+
     local_heap = acquire_lheap();
     thread_state = INITED;
 }
@@ -146,6 +152,10 @@ static void chunk_init(chunkh_t *ch, int size_cls) {
     ch->free_mem = (void *)ch + sizeof(chunkh_t);
 }
 
+static chunkh_t *chunk_extract_header(void *ptr) {
+    return (chunkh_t *)((uint64_t)ptr - (uint64_t)(ptr) % CHUNK_SIZE);
+}
+
 void lheap_replace_foreground(lheap_t *lh, int size_cls) {
     chunkh_t *ch;
 
@@ -160,13 +170,23 @@ void lheap_replace_foreground(lheap_t *lh, int size_cls) {
 
     /* get chunk from gpool */
     ch = gpool_acquire_chunk();
-    if (ch )
+    check(ch != NULL, "gpool_acquire_chunk");
     ch->owner = lh;
     chunk_init(ch, size_cls);
 
 finish:
     lh->foreground[size_cls] = ch;
     ch->state = FORG;
+}
+
+static void chunk_free_small(chunkh_t *ch, void *ptr) {
+    // TODO: race condition
+    
+}
+
+static void chunk_free_large(void *ptr) {
+    // TODO
+
 }
 
 static void *small_malloc(int size_cls) {
@@ -190,6 +210,11 @@ retry:
     return ret;
 }
 
+static void *large_malloc(size_t size) {
+    // TODO
+    
+    return NULL;
+}
 static void gpool_grow() {
     void *ret = page_alloc(gpool.pool_end, ALLOC_UNIT);
     if (ret < 0) {
@@ -202,7 +227,6 @@ static void gpool_grow() {
 
 inline static chunkh_t *gpool_acquire_chunk() {
     // TODO: freelist
-    
     pthread_mutex_lock(&gpool.lock);
 
     void *ret = gpool.free_start;
@@ -224,8 +248,7 @@ inline static int size2cls(size_t size) {
     } else if (size <= 65536) {
         ret = sizemap2[(size - 1) >> 9];
     } else {
-        // TODO
-        // ret = LARGE_CLASS;
+        ret = LARGE_CLASS;
     }
 
     return ret;
@@ -240,6 +263,11 @@ void *nv_malloc(size_t size) {
     int size_cls = size2cls(size);
     if (likely(size_cls < DEFAULT_BLOCK_CLASS)) {
         ret = small_malloc(size_cls);
+    } else if (size_cls == LARGE_CLASS) {
+        ret = large_malloc(size);
+    } else {
+        fprintf(stderr, "fatal error: unknown class %d\n", size_cls);
+        exit(0);
     }
 
     return ret;
@@ -250,7 +278,19 @@ void *nv_realloc(void *ptr, size_t size) {
 }
 
 void nv_free(void *ptr) {
-    return;
+    if (ptr == NULL) {
+        return;
+    }
+
+    chunkh_t *ch = chunk_extract_header(ptr);
+    lheap_t *lh = local_heap;
+    lheap_t *target_lh = ch->owner;
+
+    if (likely(target_lh == lh) || likely((uint64_t)target_lh != LARGE_OWNER)) {
+        chunk_free_small(ch, ptr);
+    } else {
+        chunk_free_large((void *)ch);
+    }
 }
 
 static void *page_alloc(void *pos, size_t size) {

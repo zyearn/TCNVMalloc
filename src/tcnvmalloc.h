@@ -1,11 +1,16 @@
 #ifndef TCNVMALLOC_H_
 #define TCNVMALLOC_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include "list.h"
+#include "dbg.h"
 
 #define THREAD_LOCAL __attribute__ ((tls_model ("initial-exec"))) __thread
 #define likely(x)           __builtin_expect(!!(x),1)
@@ -15,6 +20,7 @@
 #define DEFAULT_BLOCK_CLASS (100)
 #define LARGE_CLASS         (100)
 #define DUMMY_CLASS         (101)
+#define LARGE_OWNER         (0x5AA5)
 
 /* configuration */
 #define PAGE_SIZE 4096
@@ -31,17 +37,17 @@ typedef struct chunkh_s chunkh_t;
 typedef enum {
     UNINIT,
     INITED
-} init_state;
+} thread_state_t;
 
 typedef enum {
     FORG,
     BACK,
     FULL,
-} chunk_state;
+} chunk_state_t;
 
 struct chunkh_s {
     lheap_t *owner;
-    chunk_state state;
+    chunk_state_t state;
     uint32_t size_cls;
     uint32_t blk_size;
     uint32_t blk_cnt;
@@ -70,5 +76,9 @@ struct lheap_s {
 void *nv_malloc(size_t size);
 void *nv_realloc(void *ptr, size_t size);
 void nv_free(void *ptr);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

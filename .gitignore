@@ -32,3 +32,4 @@
 *.dSYM/
 *.tmp
 *.swp
+src/tags

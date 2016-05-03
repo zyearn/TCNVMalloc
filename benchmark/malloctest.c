@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <pthread.h>
 
+#ifdef NV_MALLOC
+#include "tcnvmalloc.h"
+#endif
+
 #define TDNUM 16
 #define BLKSIZE 64
 #define TOTALTIMES 8000
@@ -21,10 +25,18 @@ void *twork(void *arg) {
         g_sum++;
         pthread_mutex_unlock(&mtx);
 
+#ifdef NV_MALLOC
+        m = (char *)nv_malloc(BLKSIZE);
+#else
         m = (char *)malloc(BLKSIZE);
+#endif
         m[0] = '0';
         printf("%p\n", m);
+#ifdef NV_MALLOC
+        nv_free(m);
+#else
         free(m);
+#endif
     }
 
     return NULL;
