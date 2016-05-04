@@ -9,6 +9,7 @@ extern "C" {
 #include <stdio.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <stdint.h>
 #include "list.h"
 #include "dbg.h"
 

@@ -16,10 +16,10 @@ char sizemap2[128];
 THREAD_LOCAL thread_state_t thread_state = UNINIT;
 THREAD_LOCAL lheap_t *local_heap = NULL;
 
-static void thread_init();
-static void check_init();
-static void global_init();
-static void thread_exit();
+inline static void thread_init();
+inline static void check_init();
+inline static void global_init();
+inline static void thread_exit();
 static void gpool_init();
 static void maps_init();
 static void *small_malloc(int size_cls);
