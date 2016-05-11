@@ -62,18 +62,7 @@ static void maps_init() {
     int size;
     int class;
 
-    /* 8 +4 64 */
-    for (size = 8, class = 0; size <= 64; size += 4, class++) {
-        cls2size[class] = size;
-    }
-
-    /* 80 +16 128 */
-    for (size = 64 + 16; size <= 128; size += 16, class++) {
-        cls2size[class] = size;
-    }
-
-    /* 160 +32 256 */
-    for (size = 128 + 32; size <= 256; size += 32, class++) {
+    for (size = 16, class = 0; size <= 256; size += 8, class++) {
         cls2size[class] = size;
     }
 
@@ -85,11 +74,10 @@ static void maps_init() {
     int cur_class = 0;
     int cur_size = 0;
 
-    /* init sizemap */
-    for (cur_size = 4; cur_size <= 1024; cur_size += 4) {
+    for (cur_size = 8; cur_size <= 1024; cur_size += 8) {
         if (cur_size > cls2size[cur_class])
             cur_class++;
-        sizemap[(cur_size - 1) >> 2] = cur_class;
+        sizemap[(cur_size - 1) >> 3] = cur_class;
     }
     
     /* init sizemap2 */
@@ -130,15 +118,15 @@ static void thread_init() {
 }
 
 static void *chunk_alloc_obj(chunkh_t *ch) {
-    void *ret;
+    void *ret = NULL;
 
-    if (ch->free_blk_cnt > 0) {
+    if (ch->free_mem_cnt > 0) {
         ret = ch->free_mem;
         ch->free_mem += ch->blk_size;
-    } else {
-        
-        // TODO: use wear-aware algo
-        ret = NULL;
+        ch->free_mem_cnt--;
+    } else if (!dlist_empty(&ch->dlist_head, &ch->dlist_tail)) {
+        ret = (void *)ch->dlist_tail.prev;
+        dlist_remove((dlist_t *)ret);
     }
 
     return ret;
@@ -148,8 +136,10 @@ static void chunk_init(chunkh_t *ch, int size_cls) {
     ch->size_cls = size_cls;
     ch->blk_size = cls2size[size_cls];
     ch->blk_cnt = (CHUNK_DATA_SIZE) / ch->blk_size;
-    ch->free_blk_cnt = ch->blk_cnt;
+    ch->free_tot_cnt = ch->free_mem_cnt = ch->blk_cnt;
     ch->free_mem = (void *)ch + sizeof(chunkh_t);
+    
+    dlist_init(&ch->dlist_head, &ch->dlist_tail);
 }
 
 static chunkh_t *chunk_extract_header(void *ptr) {
@@ -197,12 +187,12 @@ retry:
     ch = lh->foreground[size_cls];
     ret = chunk_alloc_obj(ch);
 
-    if (unlikely(--ch->free_blk_cnt == 0)) {
+    if (unlikely(--ch->free_tot_cnt == 0)) {
         ch->state = FULL;
         lheap_replace_foreground(lh, size_cls);
 
         if (unlikely(ch->size_cls == DUMMY_CLASS)) {
-            ch->free_blk_cnt = 1;
+            ch->free_tot_cnt = 1;
             goto retry;
         }
     }
@@ -244,7 +234,7 @@ inline static chunkh_t *gpool_acquire_chunk() {
 inline static int size2cls(size_t size) {
     int ret;
     if (likely(size <= 1024)) {
-        ret = sizemap[(size - 1) >> 2];
+        ret = sizemap[(size - 1) >> 3];
     } else if (size <= 65536) {
         ret = sizemap2[(size - 1) >> 9];
     } else {
@@ -313,11 +303,16 @@ static lheap_t *acquire_lheap() {
         lh->foreground[i] = &(lh->dummy_chunk);
         INIT_LIST_HEAD(&(lh->background[i]));
     }
-
     INIT_LIST_HEAD(&lh->free_head);
+
     lh->dummy_chunk.owner = lh;
     lh->dummy_chunk.size_cls = DUMMY_CLASS;
-    lh->dummy_chunk.free_blk_cnt = 1;
+    lh->dummy_chunk.blk_size = 0;
+    lh->dummy_chunk.blk_cnt = 0;
+    lh->dummy_chunk.free_mem_cnt = 1;
+    lh->dummy_chunk.free_tot_cnt = 1;
+    lh->dummy_chunk.free_mem = (void *)0;
+    dlist_init(&lh->dummy_chunk.dlist_head, &lh->dummy_chunk.dlist_tail);
 
     return lh;
 }

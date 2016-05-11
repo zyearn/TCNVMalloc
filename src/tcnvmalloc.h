@@ -12,13 +12,14 @@ extern "C" {
 #include <stdint.h>
 #include "list.h"
 #include "dbg.h"
+#include "dlist.h"
 
 #define THREAD_LOCAL __attribute__ ((tls_model ("initial-exec"))) __thread
 #define likely(x)           __builtin_expect(!!(x),1)
 #define unlikely(x)         __builtin_expect(!!(x),0)
 #define CACHE_LINE_SIZE     64
 #define CACHE_ALIGN __attribute__ ((aligned (CACHE_LINE_SIZE)))
-#define DEFAULT_BLOCK_CLASS (100)
+#define DEFAULT_BLOCK_CLASS (48)
 #define LARGE_CLASS         (100)
 #define DUMMY_CLASS         (101)
 #define LARGE_OWNER         (0x5AA5)
@@ -29,7 +30,6 @@ extern "C" {
 #define CHUNK_SIZE (CHUNK_DATA_SIZE + sizeof(chunkh_t))
 #define RAW_POOL_START      ((void*)((0x600000000000/CHUNK_SIZE+1)*CHUNK_SIZE))
 #define ALLOC_UNIT  (1024*1024*1024)
-
 
 typedef struct gpool_s gpool_t;
 typedef struct lheap_s lheap_t;
@@ -52,10 +52,14 @@ struct chunkh_s {
     uint32_t size_cls;
     uint32_t blk_size;
     uint32_t blk_cnt;
-    uint32_t free_blk_cnt;
-    void *free_mem;
 
-    list_head list;
+    uint32_t free_mem_cnt;
+    uint32_t free_tot_cnt;
+    void *free_mem;
+    dlist_t dlist_head, dlist_tail;
+    
+    /* used to chain chunk in background list*/
+    list_head list; 
 };
 
 struct gpool_s {
@@ -72,7 +76,6 @@ struct lheap_s {
 
     chunkh_t dummy_chunk;
 };
-
 
 void *nv_malloc(size_t size);
 void *nv_realloc(void *ptr, size_t size);

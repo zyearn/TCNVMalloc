@@ -7,7 +7,7 @@
 #include "tcnvmalloc.h"
 #endif
 
-#define BLKSIZE 256
+#define BLKSIZE 8
 
 pthread_mutex_t mtx;
 int g_total_times = 8000;
@@ -38,8 +38,8 @@ void *twork(void *arg) {
         end = clock();
         g_time_spent += (double)(end - begin);
 
-        // m[0] = '0';
-        // printf("%p\n", m);
+        //printf("%p\n", m);
+        m[0] = '0';
 #ifdef NV_MALLOC
         nv_free(m);
 #else
