@@ -37,7 +37,7 @@ inline static void *chunk_alloc_obj(chunkh_t *ch);
 inline static void chunk_init(chunkh_t *ch, int size_cls);
 inline static chunkh_t *chunk_extract_header(void *ptr);
 inline static void chunk_free_small(chunkh_t *ch, void *ptr);
-inline static void chunk_free_large(void *ptr);
+inline static void chunk_free_large(chunkh_t *ch);
 inline void lheap_replace_foreground(lheap_t *lh, int size_cls);
 
 /* implementation */
@@ -163,6 +163,7 @@ void lheap_replace_foreground(lheap_t *lh, int size_cls) {
     check(ch != NULL, "gpool_acquire_chunk");
     ch->owner = lh;
     chunk_init(ch, size_cls);
+    printf("new mem chunk, addr = %08p\n", ch);
 
 finish:
     lh->foreground[size_cls] = ch;
@@ -171,12 +172,12 @@ finish:
 
 static void chunk_free_small(chunkh_t *ch, void *ptr) {
     // TODO: race condition
-    
+    dlist_add(&ch->dlist_head, (dlist_t *)ptr);
+    ch->free_tot_cnt++;
 }
 
-static void chunk_free_large(void *ptr) {
-    // TODO
-
+static void chunk_free_large(chunkh_t *ch) {
+    page_free(ch->free_mem, ch->blk_size);
 }
 
 static void *small_malloc(int size_cls) {
@@ -201,10 +202,18 @@ retry:
 }
 
 static void *large_malloc(size_t size) {
-    // TODO
+    size_t size_tot = size + sizeof(chunkh_t) + CHUNK_SIZE;
+
+    void *start_mem = page_alloc(NULL, size_tot);
+    void *ret = (void *)ROUNDUP((uint64_t)start_mem, CHUNK_SIZE);
+    chunkh_t *ch = (chunkh_t *)ret;
+    ch->owner = (lheap_t *)LARGE_OWNER;
+    ch->free_mem = start_mem;
+    ch->blk_size = size_tot;
     
-    return NULL;
+    return ret + sizeof(chunkh_t);
 }
+
 static void gpool_grow() {
     void *ret = page_alloc(gpool.pool_end, ALLOC_UNIT);
     if (ret < 0) {
@@ -257,7 +266,7 @@ void *nv_malloc(size_t size) {
         ret = large_malloc(size);
     } else {
         fprintf(stderr, "fatal error: unknown class %d\n", size_cls);
-        exit(0);
+        exit(-1);
     }
 
     return ret;
@@ -279,7 +288,7 @@ void nv_free(void *ptr) {
     if (likely(target_lh == lh) || likely((uint64_t)target_lh != LARGE_OWNER)) {
         chunk_free_small(ch, ptr);
     } else {
-        chunk_free_large((void *)ch);
+        chunk_free_large(ch);
     }
 }
 

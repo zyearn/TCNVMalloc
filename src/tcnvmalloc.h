@@ -31,6 +31,8 @@ extern "C" {
 #define RAW_POOL_START      ((void*)((0x600000000000/CHUNK_SIZE+1)*CHUNK_SIZE))
 #define ALLOC_UNIT  (1024*1024*1024)
 
+#define ROUNDUP(x,n)    ((x+n-1)/n * n);
+
 typedef struct gpool_s gpool_t;
 typedef struct lheap_s lheap_t;
 typedef struct chunkh_s chunkh_t;
@@ -56,6 +58,8 @@ struct chunkh_s {
     uint32_t free_mem_cnt;
     uint32_t free_tot_cnt;
     void *free_mem;
+
+    /* FIFO free double-linked queue*/
     dlist_t dlist_head, dlist_tail;
     
     /* used to chain chunk in background list*/

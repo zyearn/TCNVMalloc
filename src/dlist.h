@@ -31,6 +31,15 @@ static inline void dlist_remove(dlist_t *elem) {
     elem->next->prev = elem->prev;
 }
 
+static inline void dlist_add(dlist_t* head, dlist_t *elem) {
+    dlist_t *next = head->next;
+
+    head->next = elem;
+    elem->prev = head;
+    elem->next = next;
+    next->prev = elem;
+}
+
 #ifdef __cplusplus
 }
 #endif
