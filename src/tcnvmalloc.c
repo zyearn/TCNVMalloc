@@ -56,6 +56,8 @@ static void gpool_init() {
     gpool.pool_start = (void *)(((uint64_t)ret + CHUNK_SIZE - 1)/CHUNK_SIZE * CHUNK_SIZE);
     gpool.pool_end = ret + ALLOC_UNIT;
     gpool.free_start = gpool.pool_start;
+
+    INIT_LIST_HEAD(&gpool.free_head);
 }
 
 static void maps_init() {
@@ -140,6 +142,8 @@ static void chunk_init(chunkh_t *ch, int size_cls) {
     ch->free_mem = (void *)ch + sizeof(chunkh_t);
     
     dlist_init(&ch->dlist_head, &ch->dlist_tail);
+    
+    ch->wear_count = 0;
 }
 
 static chunkh_t *chunk_extract_header(void *ptr) {
@@ -155,15 +159,18 @@ void lheap_replace_foreground(lheap_t *lh, int size_cls) {
         goto finish;
     }
 
-
     // TODO: allocate from free list
-
-    /* get chunk from gpool */
-    ch = gpool_acquire_chunk();
+    if (!list_empty(&lh->free_head)) {
+        ch = list_entry(lh->free_head.next, chunkh_t, list);
+        list_del(&ch->list);
+    } else {
+        /* get chunk from gpool */
+        ch = gpool_acquire_chunk();
+    }
+    
     check(ch != NULL, "gpool_acquire_chunk");
     ch->owner = lh;
     chunk_init(ch, size_cls);
-    printf("new mem chunk, addr = %08p\n", ch);
 
 finish:
     lh->foreground[size_cls] = ch;
@@ -171,9 +178,42 @@ finish:
 }
 
 static void chunk_free_small(chunkh_t *ch, void *ptr) {
-    // TODO: race condition
+    // TODO: race condition when remote free
     dlist_add(&ch->dlist_head, (dlist_t *)ptr);
     ch->free_tot_cnt++;
+
+    int size_cls = ch->size_cls;
+    lheap_t *lh = ch->owner;
+
+    switch (ch->state) {
+        case FORG:
+            /* do nothing */
+            break;
+
+        case FULL:
+            list_add_tail(&ch->list, &lh->background[size_cls]);
+            ch->state = BACK;
+            break;
+
+        case BACK:
+            if (unlikely(ch->free_tot_cnt == ch->blk_cnt)) {
+                list_del(&ch->list);
+                list_add_tail(&ch->list, &lh->free_head);
+            }
+            break;
+
+        case NAVA:
+            if (unlikely(ch->free_tot_cnt == ch->blk_cnt)) {
+                pthread_mutex_lock(&gpool.lock);
+                list_add_tail(&ch->list, &gpool.free_head);
+                pthread_mutex_unlock(&gpool.lock);
+            }
+            break;
+
+        default:
+            fprintf(stderr, "fatal error: unknown state: %d\n", ch->state);
+            exit(-1);
+    }
 }
 
 static void chunk_free_large(chunkh_t *ch) {
@@ -196,6 +236,13 @@ retry:
             ch->free_tot_cnt = 1;
             goto retry;
         }
+    }
+
+    ch->wear_count++;
+    /* TODO: replace WEAR_LIMIT by blk_size related? */
+    if (unlikely(ch->wear_count) >= WEAR_LIMIT) {
+        ch->state = NAVA;
+        lheap_replace_foreground(lh, size_cls);
     }
 
     return ret;
@@ -225,14 +272,19 @@ static void gpool_grow() {
 }
 
 inline static chunkh_t *gpool_acquire_chunk() {
-    // TODO: freelist
+    // allocate from free_start first, then free list
+    void *ret = gpool.free_start;
+    chunkh_t *ch;
+
     pthread_mutex_lock(&gpool.lock);
 
-    void *ret = gpool.free_start;
-    gpool.free_start += CHUNK_SIZE;
-
-    if (gpool.free_start > gpool.pool_end) {
+    if (gpool.free_start + CHUNK_SIZE < gpool.pool_end) {
+        gpool.free_start += CHUNK_SIZE;
+    } else if (!list_empty(&gpool.free_head)) {
+        ret = list_entry(gpool.free_head.next, chunkh_t, list);
+    } else {
         gpool_grow();
+        gpool.free_start += CHUNK_SIZE;
     }
 
     pthread_mutex_unlock(&gpool.lock);

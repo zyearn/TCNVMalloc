@@ -28,6 +28,12 @@
 *.x86_64
 *.hex
 
+# Latex
+*.log
+*.aux
+paper/vldb_paper.pdf
+
+
 # Debug files
 *.dSYM/
 *.tmp

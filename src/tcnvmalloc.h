@@ -30,6 +30,7 @@ extern "C" {
 #define CHUNK_SIZE (CHUNK_DATA_SIZE + sizeof(chunkh_t))
 #define RAW_POOL_START      ((void*)((0x600000000000/CHUNK_SIZE+1)*CHUNK_SIZE))
 #define ALLOC_UNIT  (1024*1024*1024)
+#define WEAR_LIMIT  (50000)
 
 #define ROUNDUP(x,n)    ((x+n-1)/n * n);
 
@@ -46,6 +47,7 @@ typedef enum {
     FORG,
     BACK,
     FULL,
+    NAVA,   /* NOT AVAILABLE, ready to return to global when all clean */
 } chunk_state_t;
 
 struct chunkh_s {
@@ -64,6 +66,8 @@ struct chunkh_s {
     
     /* used to chain chunk in background list*/
     list_head list; 
+
+    int wear_count;
 };
 
 struct gpool_s {
@@ -71,11 +75,16 @@ struct gpool_s {
     void *pool_start;
     void *pool_end;
     void *free_start;
+
+    /* wear-aware policy is FIFO */
+    list_head free_head;
 };
 
 struct lheap_s {
     chunkh_t *foreground[DEFAULT_BLOCK_CLASS];
     list_head background[DEFAULT_BLOCK_CLASS];
+
+    /* returned by local thread */
     list_head free_head;
 
     chunkh_t dummy_chunk;
