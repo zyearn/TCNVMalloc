@@ -217,7 +217,29 @@ The only overhead is to modify the metadata of the chunk, which can be negligibl
 
 \subsection{Local Heap}
 
-% chunk state
+Local heap is maintained by each thread. 
+It is set up when a thread issues the first memory request.
+Size class related metadata is stored in local heap, every chunk in the local heap can be classified into four categories: Inuse, Waiting, Full, Notavailable. 
+The logical view of local heap and its relationship with memory chunk is shown in Figure xxx.
+
+[img] local heap..
+
+\textbf{Inuse chunk}. When an application request a memory block, wamalloc will first find the appropriate size class, then use this class number as index to get the currently using memory chunk. 
+All small memory request is served by the inuse chunk.
+
+\textbf{Waiting chunk}. Chunks in the wait list are called waiting chunks. Waiting chunks are the chunks in partially allocated state. 
+When application use up the whole memory blocks in the current chunk, chunk of the same class size is a candidate waiting to be chosen as a new inuse chunk.
+
+\textbf{Full chunk}. After several memory requests to a particular size class, a memory chunk may be out of blocks, which is called a full chunk.
+No more blocks can be allocated from a chunk in full state , thus the following request will cause the allocator to get usable chunk from waiting chunks.
+When a block is freed and the chunk to which the block belongs is in full state, this full chunk is added to the waiting list, becoming a waiting chunk.
+
+\textbf{Notavailable chunk}. The life cycle of a normal chunk may be used as inuse chunk and waiting chunk repeatedly. 
+For the wear-aware purpose, we don't expect that happen. 
+So we add a wear-count value to each memory chunk and define an allocation threshhold. 
+Every time a block is allocated from a chunk, its wear-count value increases one. 
+If wear-count value of a chunk reaches the allocation threshhold, it is no longer available for allocation, and its state becomes Notavailable. 
+When all the blocks in a Notavailable chunk are freed, this chunk is returned to global heap for furthur elaborate wear-leveling policy, which will be discussed in the following subsection.
 
 \subsection{Global Heap}
 
