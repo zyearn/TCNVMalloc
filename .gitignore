@@ -31,6 +31,9 @@
 # Latex
 *.log
 *.aux
+*.bbl
+*.blg
+*.dvi
 paper/vldb_paper.pdf
 
 

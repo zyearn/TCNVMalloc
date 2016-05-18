@@ -125,326 +125,115 @@ Note that after the notification of acceptance, there will be an updated style f
 
 
 
-
 \section{Introduction}
-The \textit{proceedings} are the records of a conference.
-ACM, as well as PVLDB, seeks to give these conference by-products a uniform,
-high-quality appearance.  To do this, ACM / PVLDB has some rigid
-requirements for the format of the proceedings documents: there
-is a specified format (balanced  double columns), a specified
-set of fonts (Arial or Helvetica and Times Roman) in
-certain specified sizes (for instance, 9 point for body copy),
-a specified live area (18 $\times$ 23.5 cm [7" $\times$ 9.25"]) centered on
-the page, specified size of margins (2.54cm [1"] top and
-bottom and 1.9cm [.75"] left and right; specified column width
-(8.45cm [3.33"]) and gutter size (.083cm [.33"]).
 
-The good news is, with only a handful of manual
-settings\footnote{Two of these, the {\texttt{\char'134 numberofauthors}}
-and {\texttt{\char'134 alignauthor}} commands, you have
-already used; another, {\texttt{\char'134 balancecolumns}}, will
-be used in your very last run of \LaTeX\ to ensure
-balanced column heights on the last page.}, the \LaTeX\ document
-class file handles all of this for you.
+Dynamic random-access memory(DRAM) has been used as the main memory of computer system for a long time, which is a type of random-access memory that stores each bit of data in a separate capacitor within an integrated circuit. 
+However, with the great demand of performance and enerygy-constrain application, the defects of DRAM has become a main concern, for example, the limited density and its high energy consumption. 
+In order to address these problems, an emerging new technology named non-volatile memory(NVM) has been proposed, such as Phase-change memory(PCM), spin torque, and memristor. 
+NVM has the advantages of low latency, low power consumption and byte-addressable, which makes it a better alternative when compared  to DRAM.
 
-The remainder of this document is concerned with showing, in
-the context of an ``actual'' document, the \LaTeX\ commands
-specifically available for denoting the structure of a
-proceedings paper, rather than with giving rigorous descriptions
-or explanations of such commands.
+However, some non-volatile memories suffers from limited write endurance. 
+Let we take PCM as example. A typical PCM cell permanently fails after nearly $10^7$ to $10^9$ writes. 
+In such circumstance, some write-intensive applications will break the PCM in a short time. 
+Moreover, many hardware-level wear-awareness policies have been proposed. 
+But the popularization of these specified hardware is much slower than the popularization of NVM in the near future. 
+What’s more worse, the legacy hardware system then can not use NVM. 
+In order to tackle ``write-too-intensive'' problem and support a software-level wear-aware memory allocator, a new memory allocator targeted for NVM platform must be designed and used in nowadays’ applications running on NVM.
 
-\section{The {\secit Body} of The Paper}
-Typically, the body of a paper is organized
-into a hierarchical structure, with numbered or unnumbered
-headings for sections, subsections, sub-subsections, and even
-smaller sections.  The command \texttt{{\char'134}section} that
-precedes this paragraph is part of such a
-hierarchy.\footnote{This is the second footnote.  It
-starts a series of three footnotes that add nothing
-informational, but just give an idea of how footnotes work
-and look. It is a wordy one, just so you see
-how a longish one plays out.} \LaTeX\ handles the numbering
-and placement of these headings for you, when you use
-the appropriate heading commands around the titles
-of the headings.  If you want a sub-subsection or
-smaller part to be unnumbered in your output, simply append an
-asterisk to the command name.  Examples of both
-numbered and unnumbered headings will appear throughout the
-balance of this sample document.
+Moreover, present wear-aware allocators without hardware-level wear-leveling also don’t support global wear-leveling. 
+For example, if an application calls malloc-like interface to get a writeable PCM address, excessive writes to this PCM cell can rapidly destroy it. 
+This is not the thing that a memory allocator can control without explicit hardware modifications. It remains a problem we must solve otherwise PCM will be damaged much earlier than we expect.
 
-Because the entire article is contained in
-the \textbf{document} environment, you can indicate the
-start of a new paragraph with a blank line in your
-input file; that is why this sentence forms a separate paragraph.
+In this paper, we propose a wear-aware allocator that provide wear-awareness without degrading the performance of allocator compared with state-of-the art allocator. 
+Specifically, tcwamalloc concerns three main folds of metadata memory write-reduction, thread arenas with a dedicated wear-aware allocation policy and APIs to support global. 
+First, it decouples metadata and data management. Generally speaking, putting metadata into DRAM will decrease plenty of writes to NVM. 
+Besides, we provide a wear-aware memory allocation policy without degrading the performance when compared to other NVM and DRAM allocators. 
+At last, tcwamalloc implement a mechanisms that allow users do the global wear-leveling without the help of modifications in hardware.
 
-\subsection{Type Changes and {\subsecit Special} Characters}
-We have already seen several typeface changes in this sample.  You
-can indicate italicized words or phrases in your text with
-the command \texttt{{\char'134}textit}; emboldening with the
-command \texttt{{\char'134}textbf}
-and typewriter-style (for instance, for computer code) with
-\texttt{{\char'134}texttt}.  But remember, you do not
-have to indicate typestyle changes when such changes are
-part of the \textit{structural} elements of your
-article; for instance, the heading of this subsection will
-be in a sans serif\footnote{A third footnote, here.
-Let's make this a rather short one to
-see how it looks.} typeface, but that is handled by the
-document class file. Take care with the use
-of\footnote{A fourth, and last, footnote.}
-the curly braces in typeface changes; they mark
-the beginning and end of
-the text that is to be in the different typeface.
+Our contributions can be summarized as follows:
+\begin{enumerate}
+    \item xxxx
+    \item xxxx
+    \item xxxx
+    \item experiment...
+\end{enumerate}
 
-You can use whatever symbols, accented characters, or
-non-English characters you need anywhere in your document;
-you can find a complete list of what is
-available in the \textit{\LaTeX\
-User's Guide}\cite{Lamport:LaTeX}.
+We have implemented a prototype version of tcwamalloc and evaluated its performance and some critical aspects against state-of-the-art memory allocators. 
+Experiment shows that for most cases tcwamalloc outperforms prior system in average block allocation times and allocation latency.
 
-\subsection{Math Equations}
-You may want to display math equations in three distinct styles:
-inline, numbered or non-numbered display.  Each of
-the three are discussed in the next sections.
+\section{Background and Motivations}
 
-\subsubsection{Inline (In-text) Equations}
-A formula that appears in the running text is called an
-inline or in-text formula.  It is produced by the
-\textbf{math} environment, which can be
-invoked with the usual \texttt{{\char'134}begin. . .{\char'134}end}
-construction or with the short form \texttt{\$. . .\$}. You
-can use any of the symbols and structures,
-from $\alpha$ to $\omega$, available in
-\LaTeX\cite{Lamport:LaTeX}; this section will simply show a
-few examples of in-text equations in context. Notice how
-this equation: \begin{math}\lim_{n\rightarrow \infty}x=0\end{math},
-set here in in-line math style, looks slightly different when
-set in display style.  (See next section).
+不用用glibc，因为重用
+用USING, WAITING 代替 fore，back
 
-\subsubsection{Display Equations}
-A numbered display equation -- one set off by vertical space
-from the text and centered horizontally -- is produced
-by the \textbf{equation} environment. An unnumbered display
-equation is produced by the \textbf{displaymath} environment.
+\section{Design of tcwamalloc}
 
-Again, in either environment, you can use any of the symbols
-and structures available in \LaTeX; this section will just
-give a couple of examples of display equations in context.
-First, consider the equation, shown as an inline equation above:
-\begin{equation}\lim_{n\rightarrow \infty}x=0\end{equation}
-Notice how it is formatted somewhat differently in
-the \textbf{displaymath}
-environment.  Now, we'll enter an unnumbered equation:
-\begin{displaymath}\sum_{i=0}^{\infty} x + 1\end{displaymath}
-and follow it with another numbered equation:
-\begin{equation}\sum_{i=0}^{\infty}x_i=\int_{0}^{\pi+2} f\end{equation}
-just to demonstrate \LaTeX's able handling of numbering.
+In this section, we propose tcwamalloc, an memory allocator for non-volatile memory with the dedicated design for wear-aware purpose without the descend of allocation performace.
 
-\subsection{Citations}
-Citations to articles \cite{bowman:reasoning, clark:pct, braams:babel, herlihy:methodology},
-conference
-proceedings \cite{clark:pct} or books \cite{salas:calculus, Lamport:LaTeX} listed
-in the Bibliography section of your
-article will occur throughout the text of your article.
-You should use BibTeX to automatically produce this bibliography;
-you simply need to insert one of several citation commands with
-a key of the item cited in the proper location in
-the \texttt{.tex} file \cite{Lamport:LaTeX}.
-The key is a short reference you invent to uniquely
-identify each work; in this sample document, the key is
-the first author's surname and a
-word from the title.  This identifying key is included
-with each item in the \texttt{.bib} file for your article.
+\subsection{Design Principles}
 
-The details of the construction of the \texttt{.bib} file
-are beyond the scope of this sample document, but more
-information can be found in the \textit{Author's Guide},
-and exhaustive details in the \textit{\LaTeX\ User's
-Guide}\cite{Lamport:LaTeX}.
+\begin{enumerate}
+    \item The most important design goal of tcnvmalloc is wear-levelling. Hence, every time we call tcwamalloc’s API to gain a writeable address, a memory block with least allocation times is expected to return to us. However, a strict policy which return the exact block with least allocation times may take plenty of latencies. ln the later section will see a great tradeoff to tackle this problem.
+    \item Another requirement is low latency, otherwise the memory would probably become the bottleneck of the entire program, which results in the allocator to be useless. To reduce the allocation latency, a local heap should be used by every thread to reduce the possible lock contention, and all memory managed by thread local heap should be allocated from a global heap. however, using lock when request/free memory from global heap is inevitable, as we will see, this is the only lock we use in the whole allocator.
+\end{enumerate}
 
-This article shows only the plainest form
-of the citation command, using \texttt{{\char'134}cite}.
-This is what is stipulated in the SIGS style specifications.
-No other citation format is endorsed.
+\subsection{Overview Stucture}
 
-\subsection{Tables}
-Because tables cannot be split across pages, the best
-placement for them is typically the top of the page
-nearest their initial cite.  To
-ensure this proper ``floating'' placement of tables, use the
-environment \textbf{table} to enclose the table's contents and
-the table caption.  The contents of the table itself must go
-in the \textbf{tabular} environment, to
-be aligned properly in rows and columns, with the desired
-horizontal and vertical rules.  Again, detailed instructions
-on \textbf{tabular} material
-is found in the \textit{\LaTeX\ User's Guide}.
+In this subsection, we will dig more deeper into the design architecture of tcwamalloc. The stucture of tcwamalloc is showed in Figure xx. tcwamalloc maintains a local heap for each thread, and a global heap for all threads. The reason why we use such a design is from the obvious observation that if a request from a thread can be satisfied by its local heap, the allocation latency will be very low since there is no lock contention which may degrade the performance. However, there must be a global heap that manage all the memory that maintained by each thread, therefore a lock must be involved. One of our implementation focus is emphasized on how to reduce the use of lock to the best of our ability.
 
-Immediately following this sentence is the point at which
-Table 1 is included in the input file; compare the
-placement of the table here with the table in the printed
-dvi output of this document.
+[img]overall architecture
 
-\begin{table}
-\centering
-\caption{Frequency of Special Characters}
-\begin{tabular}{|c|c|l|} \hline
-Non-English or Math&Frequency&Comments\\ \hline
-\O & 1 in 1,000& For Swedish names\\ \hline
-$\pi$ & 1 in 5& Common in math\\ \hline
-\$ & 4 in 5 & Used in business\\ \hline
-$\Psi^2_1$ & 1 in 40,000& Unexplained usage\\
-\hline\end{tabular}
-\end{table}
+Each local heap contains several fix-sized memory chunk. Each memory chunk is further divided into several memory block according to the size class. Each thread maintains an array of in-use memory chunk, an array of list that contains a list of waiting chunk and a free list to hold empty chunk. When a thread makes a memory request of some certain memory class and there is no corresponding in-use chunk to answer that request, the corresponding chunk in waiting list is examined to become a in-use chunk. If still no usable memory chunks can be found, the free list in the local heap or global heap will be visited based on our wear-aware policy, which will be discussed in the further subsection.
 
-To set a wider table, which takes up the whole width of
-the page's live area, use the environment
-\textbf{table*} to enclose the table's contents and
-the table caption.  As with a single-column table, this wide
-table will ``float" to a location deemed more desirable.
-Immediately following this sentence is the point at which
-Table 2 is included in the input file; again, it is
-instructive to compare the placement of the
-table here with the table in the printed dvi
-output of this document.
+\subsection{Memory Chunk}
+
+Memory chunk is the basic building block that would be transferred between global heap and local heap. A memory chunk consists of two part: a small chunk header and a 64KB chunk body. Chunk body is divided into several memory block based on the size class, obviously, with smaller size class comes more memory blocks. Chunk header stores some metadata such as remaining free blocks number, size class, chunk owner and so on.
+
+Since a memory chunk body only contains 64KB memory, all the memory request smaller than 64KB is regarded as small request,
+which is directly handled by local heap without additional locking in the global heap and 
+The usable memory block in a memory chunk can be classified into two categories: first-allocated objects and reusable objects,
+shown in the figure xx. 
+All the blocks starting from the free pointer or at the free list is ready to be allocated to users.
+How to allocate these free blocks is the key to our wear-aware strategy, which will be discussed in following subsections.
+
+[img] chunk header指向chunk内存块的关系
+
+The memory chunk size is very critical to the performance of wamalloc. 
+If the chunk size is too small, the memory block will be used up very soon and frequently communicating with the global heap will greatly decrease the performance.
+If the chunk size is too large, lots of memory blocks may remain clean or unused which leads to a huge memory waste.
+
+\subsection{Local Heap}
+
+\subsection{Global Heap}
+
+\subsection{Data Placement In DRAM And NVM}
+
+%metadata write is 频繁
+%why chunk header is in NVM?
+
+\subsection{large allocation}
+
+\subsection{wear-aware policy in different level}
+
+%每个模块的wear-aware策略都不一样, tradeoff。
+%block级别：在一般的分配器中，优先分配chunk中free_list的部分
+%chunk级别：FIFO？当allocation次数超过一个阈值，还给
+%global chunk
+%用最简单的，一个block只能分配一次，没意义，内存耗太大了。
+
+\subsection{Allocation Algorithm}
+
+\subsection{Deallocation Algorithm}
+
+\section{Global wear levelling}
+
+why? we can’t know the access pattern of a program.
+
+\section{Evaluation}
+
+\section{Related work}
 
 
-\begin{table*}
-\centering
-\caption{Some Typical Commands}
-\begin{tabular}{|c|c|l|} \hline
-Command&A Number&Comments\\ \hline
-\texttt{{\char'134}alignauthor} & 100& Author alignment\\ \hline
-\texttt{{\char'134}numberofauthors}& 200& Author enumeration\\ \hline
-\texttt{{\char'134}table}& 300 & For tables\\ \hline
-\texttt{{\char'134}table*}& 400& For wider tables\\ \hline\end{tabular}
-\end{table*}
-% end the environment with {table*}, NOTE not {table}!
-
-\subsection{Figures}
-Like tables, figures cannot be split across pages; the
-best placement for them
-is typically the top or the bottom of the page nearest
-their initial cite.  To ensure this proper ``floating'' placement
-of figures, use the environment
-\textbf{figure} to enclose the figure and its caption.
-
-This sample document contains examples of \textbf{.pdf} files to be
-displayable with \LaTeX (See Figures \ref{fig:fly} and \ref{fig:bigfly}).  More details on each of these is found in the
-\textit{Author's Guide}.
-
-\begin{figure}
-\centering
-\includegraphics{fly}
-\caption{A sample black and white graphic (.pdf format).}
-\label{fig:fly}
-\end{figure}
-
-\begin{figure}
-\centering
-\includegraphics[width=1in,height=1in]{fly}
-\caption{A sample black and white graphic (.pdf format)
-that has been resized with the \texttt{includegraphics} command.}
-\label{fig:bigfly}
-\end{figure}
-
-
-As was the case with tables, you may want a figure
-that spans two columns.  To do this, and still to
-ensure proper ``floating'' placement of tables, use the environment
-\textbf{figure*} to enclose the figure and its caption (See Figure~\ref{fig:flies}). And don't forget to end the environment with {figure*}, not {figure}!
-
-\begin{figure*}
-\centering
-\includegraphics{flies}
-\caption{A sample black and white graphic (.pdf format)
-that needs to span two columns of text.}
-\label{fig:flies}
-\end{figure*}
-
-
-Note that only {\textbf{.pdf}} files were used; if you want to include
-{\textbf{.ps}} or {\textbf{.eps}} formats, you can use the
-\texttt{{\char'134}epsfig} or \texttt{{\char'134}psfig}
-commands as appropriate for the different file types.
-
-\subsection{Theorem-like Constructs}
-Other common constructs that may occur in your article are
-the forms for logical constructs like theorems, axioms,
-corollaries and proofs.  There are
-two forms, one produced by the
-command \texttt{{\char'134}newtheorem} and the
-other by the command \texttt{{\char'134}newdef}; perhaps
-the clearest and easiest way to distinguish them is
-to compare the two in the output of this sample document:
-
-This uses the \textbf{theorem} environment, created by
-the\linebreak\texttt{{\char'134}newtheorem} command:
-\newtheorem{theorem}{Theorem}
-\begin{theorem}
-Let $f$ be continuous on $[a,b]$.  If $G$ is
-an antiderivative for $f$ on $[a,b]$, then
-\begin{displaymath}\int^b_af(t)dt = G(b) - G(a).\end{displaymath}
-\end{theorem}
-
-The other uses the \textbf{definition} environment, created
-by the \texttt{{\char'134}newdef} command:
-\newdef{definition}{Definition}
-\begin{definition}
-If $z$ is irrational, then by $e^z$ we mean the
-unique number which has
-logarithm $z$: \begin{displaymath}{\log e^z = z}\end{displaymath}
-\end{definition}
-
-Two lists of constructs that use one of these
-forms is given in the
-\textit{Author's  Guidelines}.
-
-
-There is one other similar construct environment, which is
-already set up
-for you; i.e. you must \textit{not} use
-a \texttt{{\char'134}newdef} command to
-create it: the \textbf{proof} environment.  Here
-is a example of its use:
-\begin{proof}
-Suppose on the contrary there exists a real number $L$ such that
-\begin{displaymath}
-\lim_{x\rightarrow\infty} \frac{f(x)}{g(x)} = L.
-\end{displaymath}
-Then
-\begin{align*}
-l&=\lim_{x\rightarrow c} f(x)
-= \lim_{x\rightarrow c}
-\left[ g{x} \cdot \frac{f(x)}{g(x)} \right ] \\
-&= \lim_{x\rightarrow c} g(x) \cdot \lim_{x\rightarrow c}
-\frac{f(x)}{g(x)} = 0\cdot L = 0,
-\end{align*}
-which contradicts our assumption that $l\neq 0$.
-\end{proof}
-
-Complete rules about using these environments and using the
-two different creation commands are in the
-\textit{Author's Guide}; please consult it for more
-detailed instructions.  If you need to use another construct,
-not listed therein, which you want to have the same
-formatting as the Theorem
-or the Definition\cite{salas:calculus} shown above,
-use the \texttt{{\char'134}newtheorem} or the
-\texttt{{\char'134}newdef} command,
-respectively, to create it.
-
-\subsection*{A {\secit Caveat} for the \TeX\ Expert}
-Because you have just been given permission to
-use the \texttt{{\char'134}newdef} command to create a
-new form, you might think you can
-use \TeX's \texttt{{\char'134}def} to create a
-new command: \textit{Please refrain from doing this!}
-Remember that your \LaTeX\ source code is primarily intended
-to create camera-ready copy, but may be converted
-to other forms -- e.g. HTML. If you inadvertently omit
-some or all of the \texttt{{\char'134}def}s recompilation will
-be, to say the least, problematic.
 
 \section{Conclusions}
 This paragraph will end the body of this sample document.
@@ -475,15 +264,11 @@ and the \textbf{.cls} and \textbf{.tex} files that it describes.
 % initial runs of your .tex file to
 % produce the bibliography for the citations in your paper.
 \bibliographystyle{abbrv}
-\bibliography{vldb_sample}  % vldb_sample.bib is the name of the Bibliography in this case
+\bibliography{vldb_paper}  % vldb_sample.bib is the name of the Bibliography in this case
 % You must have a proper ".bib" file
 %  and remember to run:
 % latex bibtex latex latex
 % to resolve all references
-
-\subsection{References}
-Generated by bibtex from your ~.bib file.  Run latex,
-then bibtex, then latex twice (to resolve references).
 
 %APPENDIX is optional.
 % ****************** APPENDIX **************************************
