@@ -187,7 +187,7 @@ Each local heap contains several fix-sized memory chunk. Each memory chunk is fu
 
 \subsection{Memory Chunk}
 
-Memory chunk is the basic building block that would be transferred between global heap and local heap. A memory chunk consists of two part: a small chunk header and a 64KB chunk body. Chunk body is divided into several memory block based on the size class, obviously, with smaller size class comes more memory blocks. Chunk header stores some metadata such as remaining free blocks number, size class, chunk owner and so on.
+Memory chunk is the basic building block that would be transferred between global heap and local heap. A memory chunk consists of two parts: a small chunk header and a 64KB chunk body. Chunk body is divided into several memory block based on the size class, obviously, with smaller size class comes more memory blocks. Chunk header stores some metadata such as remaining free blocks number, size class, chunk owner and so on.
 
 Since a memory chunk body only contains 64KB memory, all the memory request smaller than 64KB is regarded as small request,
 which is directly handled by local heap without additional locking in the global heap and 
@@ -200,9 +200,24 @@ How to allocate these free blocks is the key to our wear-aware strategy, which w
 
 The memory chunk size is very critical to the performance of wamalloc. 
 If the chunk size is too small, the memory block will be used up very soon and frequently communicating with the global heap will greatly decrease the performance.
-If the chunk size is too large, lots of memory blocks may remain clean or unused which leads to a huge memory waste.
+If the chunk size is too large, lots of memory blocks may remain clean or unused, which leads to a huge memory waste. 
+A working method used by many other allocator is to choose chunks of small size to serve small blocks, and chunks of large size to serve large blocks.
+The reason why they adopt this method is that there will always be avaliable usable memory blocks no matter what size class it belongs to.
+The drawbacks are also obvious.
+Since the memory chunk size is different, it increases the complexity of global heap to manage these chunks.
+Consequently this will cause the extra time plenalty and the possible memory fragment, which may lead to more physical memory than an application realy needs.
+
+Take the above discussions into consideration, we use an uniform memory chunk size for all size class. 
+In most cases, memory requests are small allocations, which are naturly guaranteed that there are several usable memory blocks. 
+For a special case, if a memory request is 64KB, there is only one block in the entire chunk body, so the allocation policy just view this block as the last remaining block and return it to the application. After that if the application needs a new 64KB memory, a new chunk is allocated to serve this request.
+Further, This design gives us several other benifits: 
+1) Since all memory chunks are of the same size, then an empty chunk can easily be transferred from one size class to another without any particular actions.
+The only overhead is to modify the metadata of the chunk, which can be negligible when compared to the non-uniform chunk size schema. 
+2) The uniform memory chunk simplified the design of global heap, which results in a lower time latency when communicating with global heap.
 
 \subsection{Local Heap}
+
+% chunk state
 
 \subsection{Global Heap}
 
