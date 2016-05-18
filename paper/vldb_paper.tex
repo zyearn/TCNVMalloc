@@ -234,29 +234,44 @@ When application use up the whole memory blocks in the current chunk, chunk of t
 No more blocks can be allocated from a chunk in full state , thus the following request will cause the allocator to get usable chunk from waiting chunks.
 When a block is freed and the chunk to which the block belongs is in full state, this full chunk is added to the waiting list, becoming a waiting chunk.
 
-\textbf{Notavailable chunk}. The life cycle of a normal chunk may be used as inuse chunk and waiting chunk repeatedly. 
-For the wear-aware purpose, we don't expect that happen. 
+\textbf{Notavailable chunk}. Consider all the things we discussed so far, a typical life cycle of a memory chunk could be first used as inuse chunk, then waiting chunk, and back and forth repeatedly. 
+For the wear-aware purpose, that is not we expect. 
 So we add a wear-count value to each memory chunk and define an allocation threshhold. 
-Every time a block is allocated from a chunk, its wear-count value increases one. 
-If wear-count value of a chunk reaches the allocation threshhold, it is no longer available for allocation, and its state becomes Notavailable. 
+Every time a block is allocated from a chunk, its wear-count value increases by one. 
+If wear-count value of a chunk reaches the predefined allocation threshhold, it is no longer available for allocation, and its state becomes Notavailable. 
 When all the blocks in a Notavailable chunk are freed, this chunk is returned to global heap for furthur elaborate wear-leveling policy, which will be discussed in the following subsection.
 
 \subsection{Global Heap}
+
+Global heap maintains the whole memory chunks obtained from operating system. 
+All the chunks of each thread are allocated from global heap. 
+The logic view of global heap is shown in figure xxx.
+
+[img] global heap
+
+From the figure we can conclude that wamalloc first requests a huge continous raw memory and divide it into several chunks ready to be allocated to different threads.
+All the chunks starting from the free pointer or at the free list is ready to be allocated.
+Just like what we have discussed in block allocation, how to allocate these free chunks is the key to our wear-aware strategy, which will be discussed in following subsections. If a chunk is allocated from the free pointer, wamalloc just returns the pointer and then increases this pointer by the size of memory chunk. Otherwise a chunk is allocated from the free list, a wear-leveling policy must be applied.
+
+Global heap is enlarged via system call(e.g., mmap) if there is no available memory chunk.
+Since global heap is shared by all threads, a lock is certainly required, which means a performance descend when lock contention happens.
+
+Thus there may be two different opinions on how to increase the memory space. One possible solution aims at economic usage of virtual memory, specifically, increasing the space linearly; while the other solution aims at reducing the lock contention if possible, for example, increasing the space exponentially. In wammaloc, we use 
 
 \subsection{Data Placement In DRAM And NVM}
 
 %metadata write is 频繁
 %why chunk header is in NVM?
 
-\subsection{large allocation}
-
 \subsection{wear-aware policy in different level}
 
-%每个模块的wear-aware策略都不一样, tradeoff。
+%每个模块的wear-aware策略都不一样, tradeoff,比较内存总消耗。
 %block级别：在一般的分配器中，优先分配chunk中free_list的部分
 %chunk级别：FIFO？当allocation次数超过一个阈值，还给
 %global chunk
 %用最简单的，一个block只能分配一次，没意义，内存耗太大了。
+
+
 
 \subsection{Allocation Algorithm}
 
