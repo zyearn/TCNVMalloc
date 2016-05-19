@@ -152,9 +152,9 @@ At last, tcwamalloc implement a mechanisms that allow users do the global wear-l
 
 Our contributions can be summarized as follows:
 \begin{enumerate}
-    \item xxxx
-    \item xxxx
-    \item xxxx
+    \item metadata %分离
+    \item % 粗细粒度结合的wear, wait-free(后台线程来把list中的chunk放入优先级队列)
+    \item global API wear
     \item experiment...
 \end{enumerate}
 
@@ -179,25 +179,47 @@ In this section, we propose tcwamalloc, an memory allocator for non-volatile mem
 
 \subsection{Overview Stucture}
 
-In this subsection, we will dig more deeper into the design architecture of tcwamalloc. The stucture of tcwamalloc is showed in Figure xx. tcwamalloc maintains a local heap for each thread, and a global heap for all threads. The reason why we use such a design is from the obvious observation that if a request from a thread can be satisfied by its local heap, the allocation latency will be very low since there is no lock contention which may degrade the performance. However, there must be a global heap that manage all the memory that maintained by each thread, therefore a lock must be involved. One of our implementation focus is emphasized on how to reduce the use of lock to the best of our ability.
+In this subsection, we will dig deeper into the design architecture of tcwamalloc.
+The stucture of tcwamalloc is showed in Figure xx.
+tcwamalloc maintains a local heap for each thread, and a global heap for all threads.
+The reason why we use such a design is from the obvious observation that if a request from a thread can be satisfied by its local heap,
+the allocation latency will be very low since there is no lock contention which may degrade the performance.
+However, there must be a global heap that manage all the memory that maintained by each thread,
+therefore a lock must be involved. One of our implementation focus is emphasized on how to reduce the use of lock to the best of our ability.
 
 [img]overall architecture
 
-Each local heap contains several fix-sized memory chunk. Each memory chunk is further divided into several memory block according to the size class. Each thread maintains an array of in-use memory chunk, an array of list that contains a list of waiting chunk and a free list to hold empty chunk. When a thread makes a memory request of some certain memory class and there is no corresponding in-use chunk to answer that request, the corresponding chunk in waiting list is examined to become a in-use chunk. If still no usable memory chunks can be found, the free list in the local heap or global heap will be visited based on our wear-aware policy, which will be discussed in the further subsection.
+Each local heap contains several fix-sized memory chunk.
+Each memory chunk is further divided into several memory block according to the size class.
+Each thread maintains an array of in-use memory chunk, an array of list that contains a list of waiting chunk and a free list to hold empty chunk.
+When a thread makes a memory request of some certain memory class and there is no corresponding in-use chunk to answer that request,
+the corresponding chunk in waiting list is examined to become a in-use chunk. 
+If still no usable memory chunks can be found,
+the free list in the local heap or global heap will be visited based on our wear-aware policy,
+which will be discussed in the further subsection.
 
 \subsection{Memory Chunk}
 
-Memory chunk is the basic building block that would be transferred between global heap and local heap. A memory chunk consists of two parts: a small chunk header and a 64KB chunk body. Chunk body is divided into several memory block based on the size class, obviously, with smaller size class comes more memory blocks. Chunk header stores some metadata such as remaining free blocks number, size class, chunk owner and so on.
+% intro
+Memory chunk is the basic building block that would be transferred between global heap and local heap. 
+A memory chunk consists of two parts: a small chunk header and a 64KB chunk body. 
+Chunk body is divided into several memory block based on the size class,
+obviously, with smaller size class comes more memory blocks. 
+Chunk header stores some metadata such as remaining free blocks number, size class, chunk owner and so on.
 
+% classes of allocatable objects
 Since a memory chunk body only contains 64KB memory, all the memory request smaller than 64KB is regarded as small request,
 which is directly handled by local heap without additional locking in the global heap and 
-The usable memory block in a memory chunk can be classified into two categories: first-allocated objects and reusable objects,
+the usable memory block in a memory chunk can be classified into two categories: never-allocated objects and reusable objects,
 shown in the figure xx. 
-All the blocks starting from the free pointer or at the free list is ready to be allocated to users.
-How to allocate these free blocks is the key to our wear-aware strategy, which will be discussed in following subsections.
+All the blocks starting from the free pointer where never-allocated objects starts or at the free list storing reusable objects is ready to be allocated to users.
 
 [img] chunk header指向chunk内存块的关系
 
+% wear policy
+How to allocate these free blocks is the key to our wear-aware strategy, which will be discussed in following subsections...粗细粒度？
+
+% how to choose chunk size
 The memory chunk size is very critical to the performance of wamalloc. 
 If the chunk size is too small, the memory block will be used up very soon and frequently communicating with the global heap will greatly decrease the performance.
 If the chunk size is too large, lots of memory blocks may remain clean or unused, which leads to a huge memory waste. 
@@ -237,9 +259,14 @@ When a block is freed and the chunk to which the block belongs is in full state,
 \textbf{Notavailable chunk}. Consider all the things we discussed so far, a typical life cycle of a memory chunk could be first used as inuse chunk, then waiting chunk, and back and forth repeatedly. 
 For the wear-aware purpose, that is not we expect. 
 So we add a wear-count value to each memory chunk and define an allocation threshhold. 
+When a chunk is first allocated from global heap, its wear-count value is set to zero.
 Every time a block is allocated from a chunk, its wear-count value increases by one. 
 If wear-count value of a chunk reaches the predefined allocation threshhold, it is no longer available for allocation, and its state becomes Notavailable. 
 When all the blocks in a Notavailable chunk are freed, this chunk is returned to global heap for furthur elaborate wear-leveling policy, which will be discussed in the following subsection.
+
+The state machine of the relationship between different kinds of chunk is shown in figure xxx.
+
+[img] state machine
 
 \subsection{Global Heap}
 
@@ -256,7 +283,21 @@ Just like what we have discussed in block allocation, how to allocate these free
 Global heap is enlarged via system call(e.g., mmap) if there is no available memory chunk.
 Since global heap is shared by all threads, a lock is certainly required, which means a performance descend when lock contention happens.
 
-Thus there may be two different opinions on how to increase the memory space. One possible solution aims at economic usage of virtual memory, specifically, increasing the space linearly; while the other solution aims at reducing the lock contention if possible, for example, increasing the space exponentially. In wammaloc, we use 
+Thus there exists two different opinions on how to increase the memory space. 
+One possible solution aims at economic usage of virtual memory, specifically, increasing the space linearly;
+while the other solution aims at reducing the lock contention if possible, for example, increasing the space exponentially. 
+In wamaloc, we use the latter solution for two reasons: 
+1) With the popularization of 64-bit machine, the size of virtual memory far exceeds the real physical memory an application needs.
+Hence, it is unimportant that an application may take too much virtual memory. In return we can probably decrease the potential lock contention by accquiring the lock as less as possible.
+2) Almost all of the modern CPUs supports page table mechanism, which means the physical memory is mapped to some virtual address only when an application really needs the physical memory. There is no page mapping at the virtual memory that an application doesn't touch, indicating that no physical memory is wasted.
+
+After a thread is terminated, there may be several chunks in thread's local heap. 
+We need to handle these remaining memory chunks properly.
+A typical method used in general-purpose memory allocator is to push these chunks into a global stack(FILO queue)
+for the reason that these chunks are probably just used by the terminated thread and they may be in cpu's L1/L2/L3 cache, which is a cache-friendly option to return the chunk already in cache.
+However, it is not a possible option for non-volatile memory because wear-leveling must be taken into consideration.
+If we continuously serve an application with the hottest memory chunk, memory ceil would be damaged quickly.
+Thus we should use
 
 \subsection{Data Placement In DRAM And NVM}
 
@@ -264,6 +305,8 @@ Thus there may be two different opinions on how to increase the memory space. On
 %why chunk header is in NVM?
 
 \subsection{wear-aware policy in different level}
+
+hybird method
 
 %每个模块的wear-aware策略都不一样, tradeoff,比较内存总消耗。
 %block级别：在一般的分配器中，优先分配chunk中free_list的部分
@@ -284,7 +327,6 @@ why? we can’t know the access pattern of a program.
 \section{Evaluation}
 
 \section{Related work}
-
 
 
 \section{Conclusions}
