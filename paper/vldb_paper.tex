@@ -165,6 +165,7 @@ Experiment shows that for most cases tcwamalloc outperforms prior system in aver
 
 不用用glibc，因为重用
 用USING, WAITING 代替 fore，back
+[img] NVRAM在系统中的位置
 
 \section{Design of tcwamalloc}
 
@@ -175,7 +176,7 @@ In this section, we propose tcwamalloc, an memory allocator for non-volatile mem
 The most important design goal of tcnvmalloc is wear-levelling. 
 Hence, every time we call tcwamalloc’s API to gain a writeable address, 
 a memory block with least allocation times is expected to return to us. 
-However, a strict policy which return the exact block with least allocation times may take plenty of latencies.
+However, a strict policy which return the exact block with least allocation times may introduce extra time penalty.
 ln the later section will see a great tradeoff to tackle this problem.
 
 Another requirement is low latency,
@@ -315,10 +316,7 @@ However, it is not a possible option for non-volatile memory because wear-leveli
 If we continuously serve an application with the hottest memory chunk, memory ceil would be damaged quickly.
 More wear-leveling policy will be discussed in the next subsection.
 
-\subsection{wear-aware policy in different level}
-
-%hybird method, 异步四叉堆
-%NVMalloc怎么做的
+\subsection{wear-leveling policy in different level}
 
 In this subsection we will discuss the wear-leveling policy in different level of wamalloc in detail.
 
@@ -332,26 +330,49 @@ NVMalloc\cite{moraru2013consistent} proposes a method to tackle this problem.
 It timestamps every available free memory block to make sure every block is allocated at least in some time interval. NVMalloc implementsit as a don't-allocate list and on every allocation and release, the allocator examines the block at the head of the queue.
 If it has been in this list for at least time T(a predefined threshhold), allocator will remove it from list and mark it as available.
 Thus, strictly speaking, it is just a modified FIFO and its drawbacks discussed above still exist.
+Further more, making a memory block not availale for a time T period will consume more memory spaces. It is obvious since when there is no available block in the interval of T, the allocator need to ask more memory from operating system for new coming requests.
 
-Explicit wear-leveling policy should be applied in two different places in wamalloc:
-1) when a thread freed a memory block, this block should be added to the free list of its belonging chunk.
-After all first-allocated blocks are used up, a block should be chosen from the free list according to the wear-leveling policy when next allocation happens.
-2) It is a common case that global heap need to reap the memory chunk returned from local heap, hence there is also a free list in global heap maintaining all usable chunks. When a new thread request a new memory chunk as its in-use chunk, a 
+
+In wamalloc, explicit wear-leveling policy should be applied in two different places. 
+We propose a novel hybird wear-leveling method to balance the tradeoff between wear-leveling accuracy and performace.
 
 % wear policy
-\textbf{wear-aware policy}. How to allocate these free blocks is the key to our wear-aware strategy. 
-We adopt different wear-leveling policy in different system level, the reason is discussed in the second section.
-In memory block level, all blocks are expected to be allocate evenly.
-Thus it is obviously that wamalloc should allocate memory chunk starting from the free pointer first
-because these memory blocks are never been allocated since this chunk is assigned to its local heap.
+\textbf{wear-leveling policy in block level}. 
+when a thread freed a memory block, this block should be added to the free list of its belonging chunk.
+After all first-allocated blocks are used up, a block should be chosen from the free list according to the wear-leveling policy when next allocation happens.
+Our target is to allocate memory blocks as evenly as possible.
+Thus it is obviously that wamalloc should allocate memory block starting from the free pointer first
+because these memory blocks have never been allocated since this chunk is assigned to its local heap.
 After a chunk runs out of its first-allocated blocks, wamalloc will search the free list of the chunk to check whether any reusable block is available.
+In consideration of allocation latency, no elaborate mechanism is employed for the sake of performance.
+We consider free list as a FIFO queue. Queue may not give an accurate allocation, but in return the allocation latency is small.
 
-%每个模块的wear-aware策略都不一样, tradeoff,比较内存总消耗。
-%block级别：在一般的分配器中，优先分配chunk中free_list的部分
-%chunk级别：FIFO？当allocation次数超过一个阈值，还给
-%global chunk
-%用最简单的，一个block只能分配一次，没意义，内存耗太大了。
+\textbf{wear-leveling policy in chunk level}. 
+It is a common case that global heap need to reap the memory chunk returned from local heap.
+Hence there is also a free chunk pool in global heap maintaining all usable chunks. 
+Just like the policy adopted in block level, 
+when a new thread request a new memory chunk as its in-use chunk,
+wamalloc will first allocate memory chunk starting from the free pointer; 
+if no available chunk is found, wamalloc will allocate chunk from free chunk pool complied with the following wear-leveling policy.
 
+% hybird method, 异步四叉堆
+The best wear-leveling policy should return the least allocated objects so far. 
+To the best of our knowledge, the most suitable data structure is a priority queue using allocation time as its key,
+and the time complexity of finding the mininum key is $O(1)$, which sounds perfect to our wear-leveling policy.
+However, now that it is the best, it is strange that no wear-aware NVM allocator use it.
+We think the main reason is that its time complexity of the push operation is $log(n)$ if priority queue is implemented with heaps. 
+It will cause an impressive latency when the push operation happens frequently.
+
+We use several optimizations let the operations of priority queue not to be the bottleneck in wamalloc:
+1) 4heap
+2) asynchronously
+
+Thus we use our optimized priority queue as the wear-leveling policy used in free chunk pool.
+
+There are two cases when a thead needs to give memory chunk back to the global heap: 
+1) when a thread is terminated
+2) we define a threshhold value S. Everytime the allocation time of the whole memory chunk exceed S,
+the state of chunk is transfered to not-available, waiting to be moved to global heap's priority queue.
 
 \subsection{Data Placement In DRAM And NVM}
 
