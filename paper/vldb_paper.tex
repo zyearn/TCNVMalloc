@@ -172,14 +172,23 @@ In this section, we propose tcwamalloc, an memory allocator for non-volatile mem
 
 \subsection{Design Principles}
 
-\begin{enumerate}
-    \item The most important design goal of tcnvmalloc is wear-levelling. Hence, every time we call tcwamalloc’s API to gain a writeable address, a memory block with least allocation times is expected to return to us. However, a strict policy which return the exact block with least allocation times may take plenty of latencies. ln the later section will see a great tradeoff to tackle this problem.
-    \item Another requirement is low latency, otherwise the memory would probably become the bottleneck of the entire program, which results in the allocator to be useless. To reduce the allocation latency, a local heap should be used by every thread to reduce the possible lock contention, and all memory managed by thread local heap should be allocated from a global heap. however, using lock when request/free memory from global heap is inevitable, as we will see, this is the only lock we use in the whole allocator.
-\end{enumerate}
+The most important design goal of tcnvmalloc is wear-levelling. 
+Hence, every time we call tcwamalloc’s API to gain a writeable address, 
+a memory block with least allocation times is expected to return to us. 
+However, a strict policy which return the exact block with least allocation times may take plenty of latencies.
+ln the later section will see a great tradeoff to tackle this problem.
+
+Another requirement is low latency,
+otherwise the memory would probably become the bottleneck of the entire program, 
+which results in the allocator to be useless. 
+To reduce the allocation latency, a local heap should be used by every thread to reduce the possible lock contention,
+and all memory managed by thread local heap should be allocated from a global heap.
+however, using lock when request/free memory from global heap is inevitable,
+as we will see, this is the only lock we use in the whole allocator.
 
 \subsection{Overview Stucture}
 
-In this subsection, we will dig deeper into the design architecture of tcwamalloc.
+In this section, we will dig deeper into the design architecture of tcwamalloc.
 The stucture of tcwamalloc is showed in Figure xx.
 tcwamalloc maintains a local heap for each thread, and a global heap for all threads.
 The reason why we use such a design is from the obvious observation that if a request from a thread can be satisfied by its local heap,
@@ -200,7 +209,6 @@ which will be discussed in the further subsection.
 
 \subsection{Memory Chunk}
 
-% intro
 Memory chunk is the basic building block that would be transferred between global heap and local heap. 
 A memory chunk consists of two parts: a small chunk header and a 64KB chunk body. 
 Chunk body is divided into several memory block based on the size class,
@@ -208,18 +216,17 @@ obviously, with smaller size class comes more memory blocks.
 Chunk header stores some metadata such as remaining free blocks number, size class, chunk owner and so on.
 
 % classes of allocatable objects
+\subsubsection{Classes of allocatable blocks}
 Since a memory chunk body only contains 64KB memory, all the memory request smaller than 64KB is regarded as small request,
 which is directly handled by local heap without additional locking in the global heap and 
-the usable memory block in a memory chunk can be classified into two categories: never-allocated objects and reusable objects,
+the usable memory block in a memory chunk can be classified into two categories: first-allocated block and reusable block,
 shown in the figure xx. 
-All the blocks starting from the free pointer where never-allocated objects starts or at the free list storing reusable objects is ready to be allocated to users.
+All the blocks starting from the free pointer where first-allocated objects starts or at the free list storing reusable objects is ready to be allocated to users. How to organize the free list will be discussed in the following wear-leveling policy section.
 
 [img] chunk header指向chunk内存块的关系
 
-% wear policy
-How to allocate these free blocks is the key to our wear-aware strategy, which will be discussed in following subsections...粗细粒度？
-
 % how to choose chunk size
+\subsubsection{How to choose chunk size}.
 The memory chunk size is very critical to the performance of wamalloc. 
 If the chunk size is too small, the memory block will be used up very soon and frequently communicating with the global heap will greatly decrease the performance.
 If the chunk size is too large, lots of memory blocks may remain clean or unused, which leads to a huge memory waste. 
@@ -229,13 +236,15 @@ The drawbacks are also obvious.
 Since the memory chunk size is different, it increases the complexity of global heap to manage these chunks.
 Consequently this will cause the extra time plenalty and the possible memory fragment, which may lead to more physical memory than an application realy needs.
 
-Take the above discussions into consideration, we use an uniform memory chunk size for all size class. 
+Take above discussions into consideration, we use an uniform memory chunk size for all size class. 
 In most cases, memory requests are small allocations, which are naturly guaranteed that there are several usable memory blocks. 
 For a special case, if a memory request is 64KB, there is only one block in the entire chunk body, so the allocation policy just view this block as the last remaining block and return it to the application. After that if the application needs a new 64KB memory, a new chunk is allocated to serve this request.
 Further, This design gives us several other benifits: 
-1) Since all memory chunks are of the same size, then an empty chunk can easily be transferred from one size class to another without any particular actions.
+\begin{enumerate}
+    \item Since all memory chunks are of the same size, then an empty chunk can easily be transferred from one size class to another without any particular actions.
 The only overhead is to modify the metadata of the chunk, which can be negligible when compared to the non-uniform chunk size schema. 
-2) The uniform memory chunk simplified the design of global heap, which results in a lower time latency when communicating with global heap.
+    \item The uniform memory chunk simplified the design of global heap, which results in a lower time latency when communicating with global heap.
+\end{enumerate}
 
 \subsection{Local Heap}
 
@@ -276,37 +285,66 @@ The logic view of global heap is shown in figure xxx.
 
 [img] global heap
 
+\subsubsection{Classes of allocatable chunks}
 From the figure we can conclude that wamalloc first requests a huge continous raw memory and divide it into several chunks ready to be allocated to different threads.
-All the chunks starting from the free pointer or at the free list is ready to be allocated.
-Just like what we have discussed in block allocation, how to allocate these free chunks is the key to our wear-aware strategy, which will be discussed in following subsections. If a chunk is allocated from the free pointer, wamalloc just returns the pointer and then increases this pointer by the size of memory chunk. Otherwise a chunk is allocated from the free list, a wear-leveling policy must be applied.
+All the chunks starting from the free pointer or at the free list is ready to be allocated, 
+just like what we have discussed in block allocation, how to allocate these free chunks is the key to our wear-aware strategy,
+which will be discussed in following subsections.
+If a chunk is allocated from the free pointer, wamalloc just returns the pointer and then increases this pointer by the size of memory chunk, 
+otherwise a chunk is allocated from the free list, a wear-leveling policy must be applied.
 
+\subsubsection{Method of enlarging global heap memory}
 Global heap is enlarged via system call(e.g., mmap) if there is no available memory chunk.
 Since global heap is shared by all threads, a lock is certainly required, which means a performance descend when lock contention happens.
-
 Thus there exists two different opinions on how to increase the memory space. 
 One possible solution aims at economic usage of virtual memory, specifically, increasing the space linearly;
 while the other solution aims at reducing the lock contention if possible, for example, increasing the space exponentially. 
 In wamaloc, we use the latter solution for two reasons: 
-1) With the popularization of 64-bit machine, the size of virtual memory far exceeds the real physical memory an application needs.
+\begin{enumerate}
+    \item With the popularization of 64-bit machine, the size of virtual memory far exceeds the real physical memory an application needs.
 Hence, it is unimportant that an application may take too much virtual memory. In return we can probably decrease the potential lock contention by accquiring the lock as less as possible.
-2) Almost all of the modern CPUs supports page table mechanism, which means the physical memory is mapped to some virtual address only when an application really needs the physical memory. There is no page mapping at the virtual memory that an application doesn't touch, indicating that no physical memory is wasted.
+    \item Almost all of the modern CPUs supports page table mechanism, which means the physical memory is mapped to some virtual address only when an application really needs the physical memory. There is no page mapping at the virtual memory that an application doesn't touch, indicating that no physical memory is wasted.
+\end{enumerate}
 
-After a thread is terminated, there may be several chunks in thread's local heap. 
-We need to handle these remaining memory chunks properly.
+\subsubsection{How to reap chunks of terminated thread}
+After a thread is terminated, there may be several remaining chunks in thread's local heap. 
+We need to handle these memory chunks properly.
 A typical method used in general-purpose memory allocator is to push these chunks into a global stack(FILO queue)
 for the reason that these chunks are probably just used by the terminated thread and they may be in cpu's L1/L2/L3 cache, which is a cache-friendly option to return the chunk already in cache.
 However, it is not a possible option for non-volatile memory because wear-leveling must be taken into consideration.
 If we continuously serve an application with the hottest memory chunk, memory ceil would be damaged quickly.
-Thus we should use
-
-\subsection{Data Placement In DRAM And NVM}
-
-%metadata write is 频繁
-%why chunk header is in NVM?
+More wear-leveling policy will be discussed in the next subsection.
 
 \subsection{wear-aware policy in different level}
 
-hybird method
+%hybird method, 异步四叉堆
+%NVMalloc怎么做的
+
+In this subsection we will discuss the wear-leveling policy in different level of wamalloc in detail.
+
+The overall purpose is quite simple: all memory blocks are expected to be allocate evenly.
+
+Traditional method uses FIFO allocation policy(such as queue) or LRU\cite{zhou2009durable}\cite{rodriguez2015write}.
+Although the advantage of FIFO is simple and fast, it is not an accurate wear-aware policy.
+LRU may be better than FIFO in wear-aware accuracy, but the complexity of maintaining a LRU queue is too high which means a performance drop will happen.
+
+NVMalloc\cite{moraru2013consistent} proposes a method to tackle this problem.
+It timestamps every available free memory block to make sure every block is allocated at least in some time interval. NVMalloc implementsit as a don't-allocate list and on every allocation and release, the allocator examines the block at the head of the queue.
+If it has been in this list for at least time T(a predefined threshhold), allocator will remove it from list and mark it as available.
+Thus, strictly speaking, it is just a modified FIFO and its drawbacks discussed above still exist.
+
+Explicit wear-leveling policy should be applied in two different places in wamalloc:
+1) when a thread freed a memory block, this block should be added to the free list of its belonging chunk.
+After all first-allocated blocks are used up, a block should be chosen from the free list according to the wear-leveling policy when next allocation happens.
+2) It is a common case that global heap need to reap the memory chunk returned from local heap, hence there is also a free list in global heap maintaining all usable chunks. When a new thread request a new memory chunk as its in-use chunk, a 
+
+% wear policy
+\textbf{wear-aware policy}. How to allocate these free blocks is the key to our wear-aware strategy. 
+We adopt different wear-leveling policy in different system level, the reason is discussed in the second section.
+In memory block level, all blocks are expected to be allocate evenly.
+Thus it is obviously that wamalloc should allocate memory chunk starting from the free pointer first
+because these memory blocks are never been allocated since this chunk is assigned to its local heap.
+After a chunk runs out of its first-allocated blocks, wamalloc will search the free list of the chunk to check whether any reusable block is available.
 
 %每个模块的wear-aware策略都不一样, tradeoff,比较内存总消耗。
 %block级别：在一般的分配器中，优先分配chunk中free_list的部分
@@ -315,6 +353,10 @@ hybird method
 %用最简单的，一个block只能分配一次，没意义，内存耗太大了。
 
 
+\subsection{Data Placement In DRAM And NVM}
+
+%metadata write is 频繁
+%why chunk header is in NVM?
 
 \subsection{Allocation Algorithm}
 
