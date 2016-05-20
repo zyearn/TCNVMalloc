@@ -7,6 +7,9 @@
 \documentclass{vldb}
 \usepackage{graphicx}
 \usepackage{balance}  % for  \balance command ON LAST PAGE  (only there!)
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
 
 
 \begin{document}
@@ -227,7 +230,7 @@ All the blocks starting from the free pointer where first-allocated objects star
 [img] chunk header指向chunk内存块的关系
 
 % how to choose chunk size
-\subsubsection{How to choose chunk size}.
+\subsubsection{How to choose chunk size}
 The memory chunk size is very critical to the performance of wamalloc. 
 If the chunk size is too small, the memory block will be used up very soon and frequently communicating with the global heap will greatly decrease the performance.
 If the chunk size is too large, lots of memory blocks may remain clean or unused, which leads to a huge memory waste. 
@@ -322,7 +325,7 @@ In this subsection we will discuss the wear-leveling policy in different level o
 
 The overall purpose is quite simple: all memory blocks are expected to be allocate evenly.
 
-Traditional method uses FIFO allocation policy(such as queue) or LRU\cite{zhou2009durable}\cite{rodriguez2015write}.
+Traditional method uses first-in-first-out(FIFO) allocation policy(such as queue) or LRU\cite{zhou2009durable}\cite{rodriguez2015write}.
 Although the advantage of FIFO is simple and fast, it is not an accurate wear-aware policy.
 LRU may be better than FIFO in wear-aware accuracy, but the complexity of maintaining a LRU queue is too high which means a performance drop will happen.
 
@@ -337,7 +340,7 @@ In wamalloc, explicit wear-leveling policy should be applied in two different pl
 We propose a novel hybird wear-leveling method to balance the tradeoff between wear-leveling accuracy and performace.
 
 % wear policy
-\textbf{wear-leveling policy in block level}. 
+\subsubsection{wear-leveling policy in block level}
 when a thread freed a memory block, this block should be added to the free list of its belonging chunk.
 After all first-allocated blocks are used up, a block should be chosen from the free list according to the wear-leveling policy when next allocation happens.
 Our target is to allocate memory blocks as evenly as possible.
@@ -347,7 +350,7 @@ After a chunk runs out of its first-allocated blocks, wamalloc will search the f
 In consideration of allocation latency, no elaborate mechanism is employed for the sake of performance.
 We consider free list as a FIFO queue. Queue may not give an accurate allocation, but in return the allocation latency is small.
 
-\textbf{wear-leveling policy in chunk level}. 
+\subsubsection{wear-leveling policy in chunk level}
 It is a common case that global heap need to reap the memory chunk returned from local heap.
 Hence there is also a free chunk pool in global heap maintaining all usable chunks. 
 Just like the policy adopted in block level, 
@@ -363,25 +366,115 @@ However, now that it is the best, it is strange that no wear-aware NVM allocator
 We think the main reason is that its time complexity of the push operation is $log(n)$ if priority queue is implemented with heaps. 
 It will cause an impressive latency when the push operation happens frequently.
 
-We use several optimizations let the operations of priority queue not to be the bottleneck in wamalloc:
-1) 4heap
-2) asynchronously
+In wamalloc, we use two optimizations make the operations of priority queue not to be the bottleneck:
+1) 4-heap is used to implement the priority queue since it has a more cpu-friendlier behavior than other implementations.
+2) Allocator doestn't move chunks to global pool synchronously, instead, the real operation is taken under the ground asynchronously.
 
-Thus we use our optimized priority queue as the wear-leveling policy used in free chunk pool.
+Thus we use our optimized priority queue as the wear-leveling policy used in free chunk pool without performace drop.
+% The tradeoff is that it may consume a slight more memory space, which is in an acceptable range 
 
-There are two cases when a thead needs to give memory chunk back to the global heap: 
-1) when a thread is terminated
-2) we define a threshhold value S. Everytime the allocation time of the whole memory chunk exceed S,
-the state of chunk is transfered to not-available, waiting to be moved to global heap's priority queue.
+There are two cases when a thread needs to give memory chunk back to the global heap: 
+1) when a thread is terminated, all its memory chunks should be returned back.
+2) As we have discussed above, the wear-leveling policy in block level is FIFO, which is not an accurate method.
+However, we can achieve a nearly optimal policy using folloing strategy: 
+we define a threshhold value \textbf{S} and a allocation time variable \textbf{alloctime} per chunk. 
+Everytime a block is allocated from a chunk, its per chunk variable \textbf{alloctime} increases by one.
+If \textbf{alloctime} exceed the predefined threshhold \textbf{S}, 
+the chunk is no longer available for serving new coming request, and state of the chunk becomes to Notavailable.
+When all memory blocks in a Notavailable chunk are freed by a thread, this chunk will be moved to the global heap.
+Instead of directly inserting the chunk to the priority queue in the global heap, wamalloc will do it asynchronously.
+Specificly, the chunk will be first inserted into a producer-consumer queue, which is a $O(1)$ operations;
+a background thread will periodly check the producer-consumer queue to get a returned chunk and insert it to the priority queue.
+Since the producer-consumer queue is the global variable shared by all threads, another lock is needed.
+A problem may be raised when lock contention happen.
+As the evalution section shows, it is not quite frequent that wamalloc inserts a chunk into the producer-consumer queue,
+which means the possible lock contention penalty will be amortized so that it won't be the bottleneck of wamalloc.
 
 \subsection{Data Placement In DRAM And NVM}
 
-%metadata write is 频繁
-%why chunk header is in NVM?
+Metadata in wamalloc can be classified into two different categories: data description and space description.
+In this section, we will disscuss which category does the metadatas previously mentioned belong to and how to place them in hybird memory system.
+In wamalloc, metadata includes chunk header, local heap and global heap.
+Chunk header belongs to data description category, in which it manages the blocks information inside a chunk and some chunk-related data, such as remaining free block counts, size class of current chunk, chunk owner, chunk state, chunk wear-leveling count and so on.
+While local heap and global heap belong to space description, it manages where can allocator find the appropriate available chunks.
+
+In tradtional memory allocator, metadata and data are coupled with each other very tightly.
+When an allocation/deallocation request comes, there will be plenty of small metadata writes of changing pointer to chain its previous block and next block in order to split large space or merge samll continuous spaces into a large free space.
+This access pattern will decrease the lifetime of NVM because of the endurance problem.
+Hence it is not what we expect in NVM allocator.
+
+In wamalloc, we keep all metadatas in DRAM except chunk header. 
+The reason is that when a thread frees a memory block back to allocator, a memory pointer \textbf{ptr} is passed as argument to wamalloc and its chunk header is easily computed by \textbf{ptr},
+otherwise another mechanism would be introduced to remember this relationship, which will certainly cause an extra time cost.
+At the meantime, wamalloc keeps the writing frequency of chunk header as few as possibile.
+
+Figure xxx show global view of wamalloc.
+[img] global relationship
 
 \subsection{Allocation Algorithm}
 
+Based on the discussion above, we summarize the allocation algorithm in the following pseudo-code.
+
+\begin{algorithm}
+\caption{Allocation Algorithm}\label{euclid}
+\begin{algorithmic}[1]
+\Procedure{MyProcedure}{}
+
+\State $\textit{sc} \gets \text{sizeToClass(}\textit{size}\text{);}$
+
+\If {$\text{isSmallClass}(sc)$}
+    \State $\text{lh} \gets \textbf{CurrentLocalHeap}$
+    \State $\text{retry:}$
+    \State $\text{ch} \gets \text{InUseChunk(}\textit{lh, sc}\text{);}$
+    \State $\text{ptr} \gets \text{AllocFromChunk(}\textit{ch}\text{);}$
+
+    \If {$\text{IsEmptyChunk(}\textit{ch}\text{)}$}
+        \State $\text{StateOf(}\textit{ch}\text{)} \gets \text{FULL;}$
+        \State $\text{FindNewInuseChunkToReplace(}\textit{lh, sc}\text{);}$
+        \If {$\text{IsNULL(}\textit{ptr}\text{)}$}
+            \State \textbf{goto} \emph{retry};
+        \EndIf
+    \EndIf
+
+    \State \text{IncreaseWearCount(}\textit{ch, 1}\text{);}
+    \If {$\text{WearCount(}\textit{ch}\text{)} \ge \textit{WEAR\_LIMIT}}$
+        \State $\text{StateOf(}\textit{ch}\text{)} \gets \text{NotAvailable;}$
+        \State $\text{FindNewInuseChunkToReplace(}\textit{lh, sc}\text{);}$
+    \EndIf
+
+\Else
+    \State $\text{ptr} \gets \text{LargeAlloc(}\textit{size}\text{);}$
+\EndIf
+\Return $\text{ptr;}$
+
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+Critical Path
+
 \subsection{Deallocation Algorithm}
+
+
+\begin{algorithm}
+\caption{Deallocatio nAlgorithm}\label{euclid}
+\begin{algorithmic}[1]
+\Procedure{MyProcedure}{}
+
+\State $\text{ch} \gets \text{ExtractHeader}\textit{ptr}\text{);}$
+\State $\text{lh} \gets \textbf{CurrentLocalHeap}$
+
+\If {$\text{IsLarge(ch)} $}
+\State \text{FreeLarge(ch)}
+\Else
+\State \text{FreeSmall(ch, ptr)}
+\EndIf
+
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+
 
 \section{Global wear levelling}
 
