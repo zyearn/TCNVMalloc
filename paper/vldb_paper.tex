@@ -229,10 +229,15 @@ Chunk header stores some metadata such as remaining free blocks number, size cla
 Since a memory chunk body only contains 64KB memory, all the memory request smaller than 64KB is regarded as small request,
 which is directly handled by local heap without additional locking in the global heap and 
 the usable memory block in a memory chunk can be classified into two categories: first-allocated block and reusable block,
-shown in the figure xx. 
+shown in Figure~\ref{fig:chunk}.
 All the blocks starting from the free pointer where first-allocated objects starts or at the free list storing reusable objects is ready to be allocated to users. How to organize the free list will be discussed in the following wear-leveling policy section.
 
-[img] chunk header指向chunk内存块的关系
+\begin{figure}[h]
+\centering
+\includegraphics[width=3.2in]{chunk.png}
+\caption{chunk structure}
+\label{fig:chunk}
+\end{figure}
 
 % how to choose chunk size
 \subsubsection{How to choose chunk size}
@@ -260,11 +265,16 @@ The only overhead is to modify the metadata of the chunk, which can be negligibl
 Local heap is maintained by each thread. 
 It is set up when a thread issues the first memory request.
 Size class related metadata is stored in local heap, every chunk in the local heap can be classified into four categories: Inuse, Waiting, Full, Notavailable. 
-The logical view of local heap and its relationship with memory chunk is shown in Figure xxx.
+The logical view of local heap and its relationship with memory chunk is shown in Figure~\ref{fig:heap}.
 
-[img] local heap..
+\begin{figure}[h]
+\centering
+\includegraphics[width=3.2in]{heap.png}
+\caption{heap structure}
+\label{fig:heap}
+\end{figure}
 
-\textbf{Inuse chunk}. When an application request a memory block, wamalloc will first find the appropriate size class, then use this class number as index to get the currently using memory chunk. 
+\textbf{In-use chunk}. When an application request a memory block, wamalloc will first find the appropriate size class, then use this class number as index to get the currently using memory chunk. 
 All small memory request is served by the inuse chunk.
 
 \textbf{Waiting chunk}. Chunks in the wait list are called waiting chunks. Waiting chunks are the chunks in partially allocated state. 
@@ -274,17 +284,28 @@ When application use up the whole memory blocks in the current chunk, chunk of t
 No more blocks can be allocated from a chunk in full state , thus the following request will cause the allocator to get usable chunk from waiting chunks.
 When a block is freed and the chunk to which the block belongs is in full state, this full chunk is added to the waiting list, becoming a waiting chunk.
 
-\textbf{Notavailable chunk}. Consider all the things we discussed so far, a typical life cycle of a memory chunk could be first used as inuse chunk, then waiting chunk, and back and forth repeatedly. 
+\textbf{Not-available chunk}. Consider all the things we discussed so far, a typical life cycle of a memory chunk could be first used as inuse chunk, then waiting chunk, and back and forth repeatedly. 
 For the wear-aware purpose, that is not we expect. 
-So we add a wear-count value to each memory chunk and define an allocation threshhold. 
+So we add a wear-count value to each memory chunk and define an allocation threshold. 
 When a chunk is first allocated from global heap, its wear-count value is set to zero.
 Every time a block is allocated from a chunk, its wear-count value increases by one. 
-If wear-count value of a chunk reaches the predefined allocation threshhold, it is no longer available for allocation, and its state becomes Notavailable. 
+If wear-count value of a chunk reaches the predefined allocation threshold, it is no longer available for allocation, and its state becomes Notavailable. 
 When all the blocks in a Notavailable chunk are freed, this chunk is returned to global heap for furthur elaborate wear-leveling policy, which will be discussed in the following subsection.
 
-The state machine of the relationship between different kinds of chunk is shown in figure xxx.
+\textbf{Clean chunk}.
+After all the blocks in a waiting chunk are freed, the waiting chunk can be used as a clean chunk without specific size class.
+Hence it should be added to a free chunk pool, becoming a candidate for in-use chunk.
+The promotion strategy must be carefully designed to achieve a wear-leveling purpose.
 
-[img] state machine
+Based on what has been discussed so far,
+we can draw the state machine of the relationship between different kinds of chunk in Figure~\ref{fig:state}.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=3.2in]{state.png}
+\caption{The state machine of chunk}
+\label{fig:state}
+\end{figure}
 
 \subsection{Global Heap}
 
@@ -336,7 +357,7 @@ LRU may be better than FIFO in wear-aware accuracy, but the complexity of mainta
 
 NVMalloc\cite{moraru2013consistent} proposes a method to tackle this problem.
 It timestamps every available free memory block to make sure every block is allocated at least in some time interval. NVMalloc implementsit as a don't-allocate list and on every allocation and release, the allocator examines the block at the head of the queue.
-If it has been in this list for at least time T(a predefined threshhold), allocator will remove it from list and mark it as available.
+If it has been in this list for at least time T(a predefined threshold), allocator will remove it from list and mark it as available.
 Thus, strictly speaking, it is just a modified FIFO and its drawbacks discussed above still exist.
 Further more, making a memory block not availale for a time T period will consume more memory spaces. It is obvious since when there is no available block in the interval of T, the allocator need to ask more memory from operating system for new coming requests.
 
@@ -345,7 +366,7 @@ In wamalloc, explicit wear-leveling policy should be applied in two different pl
 We propose a novel hybird wear-leveling method to balance the tradeoff between wear-leveling accuracy and performace.
 
 % wear policy
-\subsubsection{wear-leveling policy in block level}
+\subsubsection{in block level}
 when a thread freed a memory block, this block should be added to the free list of its belonging chunk.
 After all first-allocated blocks are used up, a block should be chosen from the free list according to the wear-leveling policy when next allocation happens.
 Our target is to allocate memory blocks as evenly as possible.
@@ -355,7 +376,11 @@ After a chunk runs out of its first-allocated blocks, wamalloc will search the f
 In consideration of allocation latency, no elaborate mechanism is employed for the sake of performance.
 We consider free list as a FIFO queue. Queue may not give an accurate allocation, but in return the allocation latency is small.
 
-\subsubsection{wear-leveling policy in chunk level}
+\subsubsection{in local heap}
+
+rat...
+
+\subsubsection{in global heap}
 It is a common case that global heap need to reap the memory chunk returned from local heap.
 Hence there is also a free chunk pool in global heap maintaining all usable chunks. 
 Just like the policy adopted in block level, 
@@ -382,9 +407,9 @@ There are two cases when a thread needs to give memory chunk back to the global 
 1) when a thread is terminated, all its memory chunks should be returned back.
 2) As we have discussed above, the wear-leveling policy in block level is FIFO, which is not an accurate method.
 However, we can achieve a nearly optimal policy using folloing strategy: 
-we define a threshhold value \textbf{S} and a allocation time variable \textbf{alloctime} per chunk. 
+we define a threshold value \textbf{S} and a allocation time variable \textbf{alloctime} per chunk. 
 Everytime a block is allocated from a chunk, its per chunk variable \textbf{alloctime} increases by one.
-If \textbf{alloctime} exceed the predefined threshhold \textbf{S}, 
+If \textbf{alloctime} exceed the predefined threshold \textbf{S}, 
 the chunk is no longer available for serving new coming request, and state of the chunk becomes to Notavailable.
 When all memory blocks in a Notavailable chunk are freed by a thread, this chunk will be moved to the global heap.
 Instead of directly inserting the chunk to the priority queue in the global heap, wamalloc will do it asynchronously.
@@ -404,7 +429,7 @@ Chunk header belongs to data description category, in which it manages the block
 While local heap and global heap belong to space description, it manages where can allocator find the appropriate available chunks.
 
 In tradtional memory allocator, metadata and data are coupled with each other very tightly.
-When an allocation/deallocation request comes, there will be plenty of small metadata writes of changing pointer to chain its previous block and next block in order to split large space or merge samll continuous spaces into a large free space.
+When an allocation or a deallocation request comes, there will be plenty of small metadata writes of changing pointer to chain its previous block and next block in order to split large space or merge samll continuous spaces into a large free space.
 This access pattern will decrease the lifetime of NVM because of the endurance problem.
 Hence it is not what we expect in NVM allocator.
 
@@ -466,7 +491,7 @@ Critical Path
 \begin{algorithmic}[1]
 \Procedure{MyProcedure}{}
 
-\State $\text{ch} \gets \text{ExtractHeader}\textit{ptr}\text{);}$
+\State $\text{ch} \gets \text{ExtractHeader(ptr);}$
 \State $\text{lh} \gets \textbf{CurrentLocalHeap}$
 
 \If {$\text{IsLarge(ch)} $}
@@ -478,7 +503,6 @@ Critical Path
 \EndProcedure
 \end{algorithmic}
 \end{algorithm}
-
 
 
 \section{Global wear levelling}
