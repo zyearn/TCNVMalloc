@@ -193,14 +193,19 @@ as we will see, this is the only lock we use in the whole allocator.
 \subsection{Overview Stucture}
 
 In this section, we will dig deeper into the design architecture of tcwamalloc.
-The stucture of tcwamalloc is showed in Figure xx.
+The stucture of tcwamalloc is showed in Figure~\ref{fig:arch}.
 tcwamalloc maintains a local heap for each thread, and a global heap for all threads.
 The reason why we use such a design is from the obvious observation that if a request from a thread can be satisfied by its local heap,
 the allocation latency will be very low since there is no lock contention which may degrade the performance.
 However, there must be a global heap that manage all the memory that maintained by each thread,
 therefore a lock must be involved. One of our implementation focus is emphasized on how to reduce the use of lock to the best of our ability.
 
-[img]overall architecture
+\begin{figure}
+\centering
+\includegraphics[width=3.2in]{arch.png}
+\caption{overall architecture}
+\label{fig:arch}
+\end{figure}
 
 Each local heap contains several fix-sized memory chunk.
 Each memory chunk is further divided into several memory block according to the size class.
