@@ -136,7 +136,7 @@ In order to address these problems, an emerging new technology named non-volatil
 NVM has the advantages of low latency, low power consumption and byte-addressable, which makes it a better alternative when compared  to DRAM.
 
 However, some non-volatile memories suffers from limited write endurance. 
-Let we take PCM as example. A typical PCM cell permanently fails after nearly $10^7$ to $10^9$ writes. 
+Let us take PCM as example. A typical PCM cell permanently fails after nearly $10^7$ to $10^9$ writes. 
 In such circumstance, some write-intensive applications will break the PCM in a short time. 
 Moreover, many hardware-level wear-awareness policies have been proposed. 
 But the popularization of these specified hardware is much slower than the popularization of NVM in the near future. 
@@ -303,7 +303,7 @@ we can draw the state machine of the relationship between different kinds of chu
 \begin{figure}[h]
 \centering
 \includegraphics[width=3.2in]{state.png}
-\caption{The state machine of chunk}
+\caption{The state machine of chunk state}
 \label{fig:state}
 \end{figure}
 
@@ -311,9 +311,14 @@ we can draw the state machine of the relationship between different kinds of chu
 
 Global heap maintains the whole memory chunks obtained from operating system. 
 All the chunks of each thread are allocated from global heap. 
-The logic view of global heap is shown in figure xxx.
+The logic view of global heap is shown in Figure~\ref{fig:global}.
 
-[img] global heap
+\begin{figure}[h]
+\centering
+\includegraphics[width=3.2in]{global.png}
+\caption{Global heap }
+\label{fig:global}
+\end{figure}
 
 \subsubsection{Classes of allocatable chunks}
 From the figure we can conclude that wamalloc first requests a huge continous raw memory and divide it into several chunks ready to be allocated to different threads.
@@ -361,12 +366,11 @@ If it has been in this list for at least time T(a predefined threshold), allocat
 Thus, strictly speaking, it is just a modified FIFO and its drawbacks discussed above still exist.
 Further more, making a memory block not availale for a time T period will consume more memory spaces. It is obvious since when there is no available block in the interval of T, the allocator need to ask more memory from operating system for new coming requests.
 
-
 In wamalloc, explicit wear-leveling policy should be applied in two different places. 
 We propose a novel hybird wear-leveling method to balance the tradeoff between wear-leveling accuracy and performace.
 
 % wear policy
-\subsubsection{in block level}
+\subsubsection{In block level}
 when a thread freed a memory block, this block should be added to the free list of its belonging chunk.
 After all first-allocated blocks are used up, a block should be chosen from the free list according to the wear-leveling policy when next allocation happens.
 Our target is to allocate memory blocks as evenly as possible.
@@ -376,11 +380,28 @@ After a chunk runs out of its first-allocated blocks, wamalloc will search the f
 In consideration of allocation latency, no elaborate mechanism is employed for the sake of performance.
 We consider free list as a FIFO queue. Queue may not give an accurate allocation, but in return the allocation latency is small.
 
-\subsubsection{in local heap}
+\subsubsection{In local heap}
 
-rat...
+When the current in-use chunk is out of blocks, 
+a chunk should be chosen as new in-use chunk based on the wear-leveling policy.
+According to the state machine shown in the previous section,
+there are two sources that a new available chunk can come from:
+one is from the waiting chunk pool, the other is from the free pool of clean chunk in local heap.
 
-\subsubsection{in global heap}
+Since Clean chunks don't belong to any size class, they are more flexible than the chunks in waiting chunk pool.
+In other words, if we have some clean chunks in the free pool of local heap, 
+we don't need to interfere with the global heap
+because these clean chunks could meet requests of any size class when in-use chunk is out of blocks.
+Thus waiting chunk pool will be checked first to find the chunk that could replace the current in-use chunk.
+
+Now we will dicuss how to organize the waiting chunk pool and the clean chunk pool.
+The method used here should take two things into consideration:
+performance and wear-leveling.
+Due to the fine-grained wear-leveling policy that will be discussed below,
+here we put an emphasis on the performance and provide a coarse-grained wear-leveling policy.
+Thus we think FIFO is our best choice, which has a $O(1)$ time complexity and a nearly optimal wear-leveling behavior.
+
+\subsubsection{In global heap}
 It is a common case that global heap need to reap the memory chunk returned from local heap.
 Hence there is also a free chunk pool in global heap maintaining all usable chunks. 
 Just like the policy adopted in block level, 
@@ -436,10 +457,14 @@ Hence it is not what we expect in NVM allocator.
 In wamalloc, we keep all metadatas in DRAM except chunk header. 
 The reason is that when a thread frees a memory block back to allocator, a memory pointer \textbf{ptr} is passed as argument to wamalloc and its chunk header is easily computed by \textbf{ptr},
 otherwise another mechanism would be introduced to remember this relationship, which will certainly cause an extra time cost.
-At the meantime, wamalloc keeps the writing frequency of chunk header as few as possibile.
+At the meantime, wamalloc keeps the writing frequency of chunk header as few as possibile. Figure~\ref{fig:globalview} show the global view of wamalloc.
 
-Figure xxx show global view of wamalloc.
-[img] global relationship
+\begin{figure}[h]
+\centering
+\includegraphics[width=3.2in]{globalview.png}
+\caption{Global view}
+\label{fig:globalview}
+\end{figure}
 
 \subsection{Allocation Algorithm}
 
@@ -448,19 +473,19 @@ Based on the discussion above, we summarize the allocation algorithm in the foll
 \begin{algorithm}
 \caption{Allocation Algorithm}\label{euclid}
 \begin{algorithmic}[1]
-\Procedure{MyProcedure}{}
+\Procedure{wamalloc}{}
 
 \State $\textit{sc} \gets \text{sizeToClass(}\textit{size}\text{);}$
 
 \If {$\text{isSmallClass}(sc)$}
-    \State $\text{lh} \gets \textbf{CurrentLocalHeap}$
+    \State $\text{lh} \gets \text{CurrentLocalHeap()}$
     \State $\text{retry:}$
     \State $\text{ch} \gets \text{InUseChunk(}\textit{lh, sc}\text{);}$
     \State $\text{ptr} \gets \text{AllocFromChunk(}\textit{ch}\text{);}$
 
     \If {$\text{IsEmptyChunk(}\textit{ch}\text{)}$}
         \State $\text{StateOf(}\textit{ch}\text{)} \gets \text{FULL;}$
-        \State $\text{FindNewInuseChunkToReplace(}\textit{lh, sc}\text{);}$
+        \State $\text{FindNewChunkToReplaceInuse(}\textit{lh, sc}\text{);}$
         \If {$\text{IsNULL(}\textit{ptr}\text{)}$}
             \State \textbf{goto} \emph{retry};
         \EndIf
@@ -469,7 +494,7 @@ Based on the discussion above, we summarize the allocation algorithm in the foll
     \State \text{IncreaseWearCount(}\textit{ch, 1}\text{);}
     \If {$\text{WearCount(}\textit{ch}\text{)} \ge \textit{WEAR\_LIMIT}}$
         \State $\text{StateOf(}\textit{ch}\text{)} \gets \text{NotAvailable;}$
-        \State $\text{FindNewInuseChunkToReplace(}\textit{lh, sc}\text{);}$
+        \State $\text{FindNewChunkToReplaceInuse(}\textit{lh, sc}\text{);}$
     \EndIf
 
 \Else
@@ -481,23 +506,66 @@ Based on the discussion above, we summarize the allocation algorithm in the foll
 \end{algorithmic}
 \end{algorithm}
 
-Critical Path
+Wamalloc will first compute the size class according to the size parameter, 
+then use this value to find the appropriate in-use chunk.
+If it is a small size request, allocation will happen directly in the in-use chunk mentioned above.
+Three exceptions could occur during an allocation:
+1) the first time a thread make a request on class $n$, no in-use chunk is availble in the current local heap.
+2) the in-use chunk is out of free blocks.
+3) when the wear-leveling variable reaches the predefined threshold.
+All these exceptions cause the same action: the current chunk(in the first situation, it is a NULL pointer) should be replaced by another usable chunk.
+If it is a large size request, the request will be redirect to operating system.
+
+The critical path in allocation algorithm is short, which guarantes the performance stability.
 
 \subsection{Deallocation Algorithm}
 
+we summarize the deallocation algorithm in the following pseudo-code.
 
 \begin{algorithm}
-\caption{Deallocatio nAlgorithm}\label{euclid}
+\caption{Deallocation Algorithm}\label{euclid}
 \begin{algorithmic}[1]
 \Procedure{MyProcedure}{}
 
 \State $\text{ch} \gets \text{ExtractHeader(ptr);}$
-\State $\text{lh} \gets \textbf{CurrentLocalHeap}$
+\State $\text{lh} \gets \text{CurrentLocalHeap()}$
 
 \If {$\text{IsLarge(ch)} $}
 \State \text{FreeLarge(ch)}
 \Else
 \State \text{FreeSmall(ch, ptr)}
+\EndIf
+
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+If it is a large memory deallocation, the memory will be returned to operating system directly via system call.
+Otherwise it is a small memory deallocation, more details are shown in the followling $FreeSmall$ pseudo-code.
+
+\begin{algorithm}
+\caption{FreeSmall}
+\begin{algorithmic}
+    \Procedure{FreeSmall}{ch, ptr}
+% TODO: input and output
+\State \text{PutPtrToFreeBlockPool(ptr);}
+\State $\text{state} \gets \text{StateOf(ch);}$
+\State $\text{lh} \gets \text{CurrentLocalHeap()}$
+
+\If {$\text{state} = \text{INUSE}$}
+    \State \text{pass;}
+\ElsIf {$\text{state} = \text{FULL}$}
+    \State \text{AddToWaitingChunks(ch, lh);}
+\ElsIf {$\text{state} = \text{WAITING}$}
+    \If {$\text{AllBlocksAreFreed(ch)}$} 
+        \State \text{AddToLocalHeapFreeList(ch);}
+    \EndIf
+\ElsIf {$\text{state} = \text{NOTAVAILABLE}$}
+    \If {$\text{AllBlocksAreFreed(ch)}$} 
+        \State \text{ReturnToGlobalHeap(ch);}
+    \EndIf
+\Else
+    \State \text{Error: Unknown state.}
 \EndIf
 
 \EndProcedure
