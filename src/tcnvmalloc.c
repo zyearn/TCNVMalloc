@@ -20,10 +20,10 @@ inline static void thread_init();
 inline static void check_init();
 inline static void global_init();
 inline static void thread_exit();
-static void gpool_init();
-static void maps_init();
-static void *small_malloc(int size_cls);
-static void *large_malloc(size_t size);
+inline static void gpool_init();
+inline static void maps_init();
+inline static void *small_malloc(int size_cls);
+inline static void *large_malloc(size_t size);
 
 /* global pool operation */
 inline static void gpool_grow();
@@ -40,7 +40,43 @@ inline static void chunk_free_small(chunkh_t *ch, void *ptr);
 inline static void chunk_free_large(chunkh_t *ch);
 inline void lheap_replace_foreground(lheap_t *lh, int size_cls);
 
+
 /* implementation */
+inline static int chunk_comp(void *i, void *j) {
+    chunkh_t *chi = (chunkh_t *)i;
+    chunkh_t *chj = (chunkh_t *)j;
+
+    return (chi->wear_tot < chj->wear_tot)? 1: 0;
+}
+
+static void *reap_chunk(void *arg) {
+    int sleeptime = 1;
+    chunkh_t *ch;
+    int ret;
+
+    while (1) {
+        sleep(sleeptime);
+
+        pthread_mutex_lock(&gpool.lock);
+        while (!list_empty(&gpool.free_list)) {
+            ch = list_entry(gpool.free_list.next, chunkh_t, list);
+
+            ch->wear_tot++;
+            ret = pq_insert(&gpool.pq, ch);
+            if (ret != 0) {
+                fprintf(stderr, "pq_insert error\n");
+                exit(-1);
+            }
+
+            list_del(&ch->list);
+        }
+
+        pthread_mutex_unlock(&gpool.lock);
+    }
+
+    return NULL;
+}
+
 static void gpool_init() {
     if (pthread_mutex_init(&gpool.lock, NULL) < 0) {
         fprintf(stderr, "fatal error: pthread_mutex_init failed\n");
@@ -57,7 +93,16 @@ static void gpool_init() {
     gpool.pool_end = ret + ALLOC_UNIT;
     gpool.free_start = gpool.pool_start;
 
-    INIT_LIST_HEAD(&gpool.free_head);
+    INIT_LIST_HEAD(&gpool.free_list);
+    pq_init(&gpool.pq, chunk_comp, PQ_DEFAULT_SIZE);
+
+    /* start thread to reap chunk asynchronously */
+    pthread_t pid;
+    if (pthread_create(&pid, NULL, reap_chunk, NULL) < 0) {
+        fprintf(stderr, "pthread_create error\n");
+        exit(-1);
+    }
+
 }
 
 static void maps_init() {
@@ -160,15 +205,16 @@ void lheap_replace_foreground(lheap_t *lh, int size_cls) {
     }
 
     // TODO: allocate from free list
-    if (!list_empty(&lh->free_head)) {
-        ch = list_entry(lh->free_head.next, chunkh_t, list);
+    if (!list_empty(&lh->free_list)) {
+        ch = list_entry(lh->free_list.next, chunkh_t, list);
         list_del(&ch->list);
-    } else {
-        /* get chunk from gpool */
-        ch = gpool_acquire_chunk();
+        goto finish;
     }
-    
+
+    /* get chunk from gpool */
+    ch = gpool_acquire_chunk();
     check(ch != NULL, "gpool_acquire_chunk");
+
     ch->owner = lh;
     chunk_init(ch, size_cls);
 
@@ -198,14 +244,14 @@ static void chunk_free_small(chunkh_t *ch, void *ptr) {
         case BACK:
             if (unlikely(ch->free_tot_cnt == ch->blk_cnt)) {
                 list_del(&ch->list);
-                list_add_tail(&ch->list, &lh->free_head);
+                list_add_tail(&ch->list, &lh->free_list);
             }
             break;
 
         case NAVA:
             if (unlikely(ch->free_tot_cnt == ch->blk_cnt)) {
                 pthread_mutex_lock(&gpool.lock);
-                list_add_tail(&ch->list, &gpool.free_head);
+                list_add_tail(&ch->list, &gpool.free_list);
                 pthread_mutex_unlock(&gpool.lock);
             }
             break;
@@ -272,24 +318,34 @@ static void gpool_grow() {
 }
 
 inline static chunkh_t *gpool_acquire_chunk() {
-    // allocate from free_start first, then free list
-    void *ret = gpool.free_start;
-    chunkh_t *ch;
-
+    // allocate from free_start first, then priority queue
     pthread_mutex_lock(&gpool.lock);
 
-    if (gpool.free_start + CHUNK_SIZE < gpool.pool_end) {
-        gpool.free_start += CHUNK_SIZE;
-    } else if (!list_empty(&gpool.free_head)) {
-        ret = list_entry(gpool.free_head.next, chunkh_t, list);
-    } else {
+    chunkh_t *ch = gpool.free_start;
+    do {
+        if (gpool.free_start + CHUNK_SIZE <= gpool.pool_end) {
+            gpool.free_start += CHUNK_SIZE;
+            ch->wear_tot = 0;
+            break;
+        }
+        
+        if (!pq_is_empty(&gpool.pq)) {
+            ch = (chunkh_t *)pq_min(&gpool.pq);
+            if (pq_delmin(&gpool.pq) < 0) {
+                fprintf(stderr, "pq_delmin error\n");
+                exit(-1);
+            }
+
+            break;
+        } 
+        
         gpool_grow();
         gpool.free_start += CHUNK_SIZE;
-    }
+    } while(0);
 
     pthread_mutex_unlock(&gpool.lock);
 
-    return (chunkh_t *)ret;
+    return ch;
 }
 
 inline static int size2cls(size_t size) {
@@ -305,7 +361,7 @@ inline static int size2cls(size_t size) {
     return ret;
 }
 
-void *nv_malloc(size_t size) {
+void *wa_malloc(size_t size) {
     void *ret = NULL;
     check_init();
 
@@ -324,11 +380,11 @@ void *nv_malloc(size_t size) {
     return ret;
 }
 
-void *nv_realloc(void *ptr, size_t size) {
+void *wa_realloc(void *ptr, size_t size) {
     return NULL;
 }
 
-void nv_free(void *ptr) {
+void wa_free(void *ptr) {
     if (ptr == NULL) {
         return;
     }
@@ -337,7 +393,7 @@ void nv_free(void *ptr) {
     lheap_t *lh = local_heap;
     lheap_t *target_lh = ch->owner;
 
-    if (likely(target_lh == lh) || likely((uint64_t)target_lh != LARGE_OWNER)) {
+    if (likely(target_lh == lh || (uint64_t)target_lh != LARGE_OWNER)) {
         chunk_free_small(ch, ptr);
     } else {
         chunk_free_large(ch);
@@ -364,13 +420,13 @@ static lheap_t *acquire_lheap() {
         lh->foreground[i] = &(lh->dummy_chunk);
         INIT_LIST_HEAD(&(lh->background[i]));
     }
-    INIT_LIST_HEAD(&lh->free_head);
+    INIT_LIST_HEAD(&lh->free_list);
 
     lh->dummy_chunk.owner = lh;
     lh->dummy_chunk.size_cls = DUMMY_CLASS;
     lh->dummy_chunk.blk_size = 0;
     lh->dummy_chunk.blk_cnt = 0;
-    lh->dummy_chunk.free_mem_cnt = 1;
+    lh->dummy_chunk.free_mem_cnt = 0;
     lh->dummy_chunk.free_tot_cnt = 1;
     lh->dummy_chunk.free_mem = (void *)0;
     dlist_init(&lh->dummy_chunk.dlist_head, &lh->dummy_chunk.dlist_tail);

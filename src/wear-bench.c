@@ -4,17 +4,19 @@
 #include "tcnvmalloc.h"
 
 #define TDNUM 256
-#define TIMES 10
+#define TIMES 100000
+#define SIZE 128
 
 void *twork(void *arg) {
     int i;
     void *m;
 
     for (i=0; i<TIMES; i++) {
-        m = nv_malloc(10);
-        printf("thread %zu: m=%p\n", (size_t)arg, m);
+        nv_malloc(SIZE);
+        //printf("thread %zu: m=%p\n", (size_t)arg, m);
     }
 
+    //printf("thread %zu ready to exit\n", (size_t)arg);
     return NULL;
 }
 
@@ -43,7 +45,7 @@ int main(int argc, char **argv) {
     m = nv_malloc(10);
     m = nv_malloc(10);
 
-    for (i=0; i<TDNUM; i++) {
+    for (i=0; i<n; i++) {
         if (pthread_join(tid[i], NULL) < 0) {
             printf("pthread_join err\n");
         }

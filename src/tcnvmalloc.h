@@ -7,12 +7,14 @@ extern "C" {
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <stdint.h>
 #include "list.h"
 #include "dbg.h"
 #include "dlist.h"
+#include "pq.h"
 
 #define THREAD_LOCAL __attribute__ ((tls_model ("initial-exec"))) __thread
 #define likely(x)           __builtin_expect(!!(x),1)
@@ -67,7 +69,11 @@ struct chunkh_s {
     /* used to chain chunk in background list*/
     list_head list; 
 
+    /* wear_count per allocation */
     int wear_count;
+
+    /* total wear number */
+    int wear_tot;
 };
 
 struct gpool_s {
@@ -77,7 +83,10 @@ struct gpool_s {
     void *free_start;
 
     /* wear-aware policy is FIFO */
-    list_head free_head;
+    list_head free_list;
+
+    /* priority queue */
+    pq_t pq;
 };
 
 struct lheap_s {
@@ -85,14 +94,14 @@ struct lheap_s {
     list_head background[DEFAULT_BLOCK_CLASS];
 
     /* returned by local thread */
-    list_head free_head;
+    list_head free_list;
 
     chunkh_t dummy_chunk;
 };
 
-void *nv_malloc(size_t size);
-void *nv_realloc(void *ptr, size_t size);
-void nv_free(void *ptr);
+void *wa_malloc(size_t size);
+void *wa_realloc(void *ptr, size_t size);
+void wa_free(void *ptr);
 
 #ifdef __cplusplus
 }
