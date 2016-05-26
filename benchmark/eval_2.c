@@ -3,11 +3,15 @@
 #include <pthread.h>
 #include <time.h>
 
-#ifdef NV_MALLOC
-#include "tcnvmalloc.h"
+#ifdef WA_MALLOC
+    #include "tcnvmalloc.h"
+#else
+    #ifdef NV_MALLOC
+    #include "nvmalloc/nvmalloc.h"
+    #endif
 #endif
 
-#define BLKSIZE 64
+#define BLKSIZE 32
 
 pthread_mutex_t mtx;
 int g_total_times = 8000;
@@ -20,26 +24,31 @@ void *twork(void *arg) {
     size_t i;
     clock_t begin, end;
 
-    //begin = clock();
+    for (i=0; i<g_total_times; i++) {
+#ifdef WA_MALLOC
+        m = (char *)wa_malloc(BLKSIZE);
+#else
 
-    for (i=0; i<g_total_times/g_tdnum; i++) {
 #ifdef NV_MALLOC
-        m = (char *)nv_malloc(BLKSIZE);
+        m = (char *)nvmalloc(BLKSIZE);
 #else
         m = (char *)malloc(BLKSIZE);
 #endif
+#endif
+        m[0] = '\0';
 
-        // printf("%p\n", m);
-        // m[0] = '0';
+        if (rand() % 2 == 0) {
+#ifdef WA_MALLOC
+        wa_free(m);
+#else
 #ifdef NV_MALLOC
-        nv_free(m);
+        nvfree(m);
 #else
         free(m);
 #endif
+#endif
+        }
     }
-
-    //end = clock();
-    //g_time_spent += (double)(end - begin);
 
     return NULL;
 }
@@ -49,16 +58,20 @@ int main(int argc, char *argv[]) {
     char *m;
     pthread_t tid[1000];
     int i, rc;
+    srand(time(NULL));
 
-    if (argc >= 2) {
-        g_total_times = atoi(argv[1]);
+    if (argc < 3) {
+        fprintf(stderr, "usage: ./a.out <total_time> <threan_num>\n");
+        exit(-1);
     }
+    g_total_times = atoi(argv[1]);
+    g_tdnum = atoi(argv[2]);
 
-    if (argc >= 3) {
-        g_tdnum = atoi(argv[2]);
-    }
+#ifdef NV_MALLOC
+    nvmalloc_init(100000000, 10);
+#endif
+    //printf("total_times=%d, tdnum=%d\n", g_total_times, g_tdnum);
 
-    printf("total_times=%d, tdnum=%d\n", g_total_times, g_tdnum);
     rc = pthread_mutex_init(&mtx, NULL);
     if (rc < 0) {
         fprintf(stderr, "pthread_mutex_init error\n");
@@ -78,6 +91,6 @@ int main(int argc, char *argv[]) {
     }
 
     //printf("g_time_spent=%lf, avg clocks = %lf\n", g_time_spent, g_time_spent / (double)g_total_times);
-
+    
     return 0;
 }

@@ -37,6 +37,7 @@ void *twork(void *arg) {
 #endif
 
         printf("%p\n", m);
+        //m[0] = '\0';
 
         if (rand() % 2 == 0) {
 #ifdef WA_MALLOC

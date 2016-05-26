@@ -20,7 +20,8 @@ int main(int argc, char **argv) {
     }
     */
 
-    printf("total=%d, avg=%lf\n", total, (double)total/mp.size());
+    // printf("total=%d, avg=%lf\n", total, (double)total/mp.size());
+    printf("%lf", (double)total/mp.size());
 
     return 0;
 }
