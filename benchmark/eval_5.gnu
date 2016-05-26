@@ -1,5 +1,5 @@
 set title ""
-set xlabel 'Numbers of thread'
+set xlabel 'Number of thread'
 set ylabel 'Average time in us'
 set yrange [-0.5:3]
 set key box

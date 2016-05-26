@@ -1,5 +1,5 @@
 set title ""
-set xlabel 'Numbers of malloc'
+set xlabel 'Number of malloc'
 set ylabel 'Average allocation frequency per block'
 set yrange [1.2:2.15]
 set key box
