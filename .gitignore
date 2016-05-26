@@ -42,3 +42,7 @@ paper/vldb_paper.pdf
 *.tmp
 *.swp
 src/tags
+stat_dist
+result.*
+*.png
+*.res
