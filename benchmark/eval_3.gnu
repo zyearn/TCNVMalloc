@@ -1,6 +1,6 @@
 set title ""
-set xlabel 'numbers of malloc'
-set ylabel 'average allocation time per block'
+set xlabel 'Numbers of malloc'
+set ylabel 'Average allocation frequency per block'
 set yrange [1.2:2.15]
 set key box
 set terminal png

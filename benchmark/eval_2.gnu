@@ -1,5 +1,5 @@
 set title ""
-set xlabel 'numbers of malloc'
+set xlabel 'Numbers of malloc'
 set ylabel 'Physical memory consumptiom(K)'
 # set yrange [1.6:2.1]
 set key box
