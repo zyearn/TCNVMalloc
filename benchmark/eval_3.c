@@ -11,31 +11,36 @@
     #endif
 #endif
 
-#define BLKSIZE 128
-
 pthread_mutex_t mtx;
 int g_total_times = 8000;
 int g_sum = 0;
 int g_tdnum = 16;
 double g_time_spent = 0;
 
+
 void *twork(void *arg) {
     char *m;
     size_t i;
     clock_t begin, end;
+    int s = 64, l = 512;
+    int blksize;
 
     for (i=0; i<g_total_times; i++) {
+        blksize = rand() % (l-s+1) + s;
 #ifdef WA_MALLOC
-        m = (char *)wa_malloc(BLKSIZE);
+        m = (char *)wa_malloc(blksize);
 #else
 
 #ifdef NV_MALLOC
-        m = (char *)nvmalloc(BLKSIZE);
+        m = (char *)nvmalloc(blksize);
 #else
-        m = (char *)malloc(BLKSIZE);
+        m = (char *)malloc(blksize);
 #endif
+
 #endif
-        m[0] = '\0';
+
+        printf("%p\n", m);
+        //m[0] = '\0';
 
         if (rand() % 2 == 0) {
 #ifdef WA_MALLOC
@@ -91,7 +96,6 @@ int main(int argc, char *argv[]) {
     }
 
     //printf("g_time_spent=%lf, avg clocks = %lf\n", g_time_spent, g_time_spent / (double)g_total_times);
-    sleep(1);
-    
+
     return 0;
 }

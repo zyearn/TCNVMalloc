@@ -1,7 +1,7 @@
 set title ""
 set xlabel 'numbers of malloc'
 set ylabel 'average allocation time per block'
-set yrange [1.6:2.1]
+set yrange [1.9:2.1]
 set key box
 set terminal png
 set output 'eval_1.png'

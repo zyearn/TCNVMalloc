@@ -1,7 +1,7 @@
 #!/bin/bash
 
-gcc -o wa.out eval_2.c ../src/tcnvmalloc.c ../src/pq.c -I../src/ -DWA_MALLOC -lpthread
-gcc -o nv.out eval_2.c nvmalloc/nvmalloc.c -DNV_MALLOC -lpthread
+gcc -o wa.out eval_4.c ../src/tcnvmalloc.c ../src/pq.c -I../src/ -DWA_MALLOC -lpthread
+gcc -o nv.out eval_4.c nvmalloc/nvmalloc.c -DNV_MALLOC -lpthread
 
 i="0"
 BASE="10000"

@@ -11,7 +11,7 @@
     #endif
 #endif
 
-#define BLKSIZE 32
+#define BLKSIZE 128
 
 pthread_mutex_t mtx;
 int g_total_times = 8000;
