@@ -614,7 +614,105 @@ In other words, \textbf{wa\_write} is just a wrapper of wamalloc with an efficie
 
 \section{Evaluation}
 
-TODO.
+In this section, we evaluate wamalloc in several benchmarks and compare it against the glibc allocator and NVMalloc\cite{moraru2013consistent}.
+We analyze wear-leveling as well as physical memory consumption and the performance of wamalloc under uniform and random allocation workloads.
+
+\subsection{Benchmark Setup}
+
+All evaluations were performed on a linux machine with 8 Intel Xeon 2GHz processors and 8GB DRAM, running the Linux 3.11 kernel.
+We use DRAM as NVM proxy. It is important note that the evaluation software for NVM is not necessay for our evaluations, for the reason that wamalloc focus on the wear-leveling of allocation and the allocator perforance, rather than the performance of different NVM.
+Thus if the conclusion is true performed in DRAM, it is also true performed in NVM.
+Wamalloc is implemented in about 800 lines of code in C.
+
+We decided to evaluate wear-leveling against NVMalloc and allocation performance against NVMalloc, as well as glibc,
+which is compared to provide a performance baseline. 
+The only three non-volatile allocator implementations publicly availbale at the time of writing are NVMalloc, nvm\_malloc, pmemalloc.
+Nvm\_malloc provided a recovery mechanism and used the Persistent Memory Emulation Platform(PMEP)\cite{dulloor2014system} to emulate the performance of emerging NVM technologies.
+Since wamalloc uses DRAM as a proxy and do not support recovery, we exclude nvm\_malloc for fairness reasons.
+Pmemalloc uses a simple first-fit algorithm and thus performs very poorly at runtime costs with the increasement of allocation.
+However, NVMalloc focused largely on designing a wear-aware allocation algorithms to increase the lifetime of NVM.
+It turns out that our assumption, evaluation setup and the targeted problem are closest to these of in NVMalloc, so we will treat NVMalloc as contender.
+
+\subsection{wear-leveling}
+
+First, we evaluate the ability of our allocator to avoid NVM wear-out using a simple test program under uniform and random allocation and deallocation operations(50\% each).
+In NVMalloc, for every allocation, the program writes the allocated block once, then use Pin\cite{luk2005pin} to record store to memory and compared the total writes of each block.
+In this method, the total writes depends on not only the allocator itself but alse the test program behavior,
+which we think may not be necessary and even worse, not be accurate in evaluating the wear-leveling ability of memory allocator.
+we think it is more accurate to evaluate the allocation frequency of each block to illustrate the ability of wear-leveling.
+More specificly, we run test to get the total allocation memory address, which can be stored in a set \textbf{V}.
+If one specific memory address are allocated twice by the allocator, the address is stored once in set \textbf{V}.
+The more evenly the addresses in \textbf{V} distribute, the better the wear-leveling policy is.
+Thus we use (total allocation time)/(sizeof \textbf{V}) as average allocation frequency to metric the wear-leveling performance.
+
+Figure~\ref{fig:eval_1} and Figure~\ref{fit:eval_3} show the result of wear-leveling based on the metric described above with uniform allocation of 128 byte and random distribution allocation between 64 and 512 bytes.
+Since Wamalloc use a more elaborate and accurate wear-leveling policy than NVMalloc,
+it is expectded that wamalloc performs better than NVMalloc.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=3in]{eval_1.png}
+\caption{uniform allocations(128byte)}
+\label{fig:eval_1}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=3in]{eval_3.png}
+\caption{random allocations between 64 and 512 bytes}
+\label{fig:eval_3}
+\end{figure}
+
+In Figure~\ref{fig:eval_1}, as the number of malloc increases,
+the average allocation frequency per block of NVMalloc is about 2.
+while the value of that in Wamalloc is about 1.98, 
+indicating Wamalloc performs better than NVMalloc under the workloads of uniform allocation.
+In Figure~\ref{fig:eval_3},
+Wamalloc also performs better than NVMalloc under the workload of random allocation.
+This is explained by using the 4-ary heap implementing an accurate and elaborate wear-leveling policy.
+
+However, it is meaningless to compare the average allocation frequency without comparing the physical memory consumption.
+A simple allocator that allocate every memory block just once and never use that memory again, could make the average allocation frequency per block to be 1, while at the meantime it consume plenty of physical memory, causing it to be a useless allocator.
+Thus, next we need also measure the memory consumption of above evaluations under uniform and random allocation.
+
+Figure~\ref{fig:eval_2} and Figure~\ref{fig:eval_4} show the total memory consumption under the same workloads in Figure~\ref{fig:eval_1} and Figure~\ref{fig:eval_3}.
+We can conclude from these figures that 
+Wamalloc is much more economic in physical memory usage than NVMalloc.
+Under uniform allocation, NVMalloc consumes nearly twice more memory than that Wamalloc consumes.
+Under random allocation, the curve of memory consumption of NVMalloc and Wamalloc tend to be linear, 
+however, Wamalloc still consumes less physical memory than NVMalloc by a constant difference.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=3in]{eval_2.png}
+\caption{physical memory consumption under uniform allocations(128byte)}
+\label{fig:eval_2}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=3in]{eval_4.png}
+\caption{physical memory consumption under random allocations}
+\label{fig:eval_4}
+\end{figure}
+
+In the above evalutions, we can arrive the conclusion that
+Wamalloc perform better than NVMalloc not only in the wear-leveling policy,
+but also in the physical memory consumptions.
+
+\subsection{allocation performance}
+
+Now, We are going to compare the allocation performance of each different allocator,
+which is a crucial metric since it will affect the overall performance of a program.
+Specificlly, we compare the average allocation time under workloads of different parrallel threads against NVMalloc.
+We also add the gblic malloc(version 2.21) into comparison so that it can provide a performance baseline.
+
+Unfortunately, NVMalloc does not support multithreading
+so we modify the source code of NVMalloc to make multithreading supported in NVMalloc.
+
+\subsection{Evalution Summary}
+
+% ref nvm_malloc
 
 \section{Related work}
 
