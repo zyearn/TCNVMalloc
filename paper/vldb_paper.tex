@@ -18,7 +18,7 @@
 
 %\title{A Sample {\ttlit Proceedings of the VLDB Endowment} Paper in LaTeX
 %Format\titlenote{for use with vldb.cls}}
-\title{WaMalloc: An Locality-conscious wear-aware allocator for Non-volatile Main Memory}
+\title{WaMalloc: An thread-cache wear-aware allocator for Non-volatile Main Memory}
 
 % possible, but not really needed or used for PVLDB:
 %\subtitle{[Extended Abstract]
@@ -437,9 +437,9 @@ There are two cases when a thread needs to give memory chunk back to the global 
 1) when a thread is terminated, all its memory chunks should be returned back.
 2) As we have discussed above, the wear-leveling policy in block level is FIFO, which is not an accurate method.
 However, we can achieve a nearly optimal policy using following strategy: 
-we define a threshold value \textbf{S} and an allocation time variable \textbf{alloctime} per chunk. 
-Everytime a block is allocated from a chunk, its per chunk variable \textbf{alloctime} increases by one.
-If \textbf{alloctime} exceed the predefined threshold \textbf{S}, 
+we define a threshold value \textbf{WEAR\_LIMIT} and an allocation time variable \textbf{MaxAllocTime} per chunk. 
+Everytime a block is allocated from a chunk, its per chunk variable \textbf{MaxAllocTime} increases by one.
+If \textbf{MaxAllocTime} exceed the predefined threshold \textbf{WEAR\_LIMIT}, 
 the chunk is no longer available for serving new coming request, and state of the chunk becomes to Not-available.
 When all memory blocks in a Not-available chunk are freed by a thread, this chunk will be moved to the global heap.
 Instead of directly inserting the chunk to the priority queue in the global heap, wamalloc will do it asynchronously.
@@ -623,6 +623,7 @@ All evaluations were performed on a linux machine with 8 Intel Xeon 2GHz process
 We use DRAM as NVM proxy. It is important note that the evaluation software for NVM is not necessay for our evaluations, for the reason that wamalloc focus on the wear-leveling of allocation and the allocator perforance, rather than the performance of different NVM.
 Thus if the conclusion is true performed in DRAM, it is also true performed in NVM.
 Wamalloc is implemented in about 800 lines of code in C.
+The \textbf{WEAR\_LIMIT} global variable is set to $50000$ in all evaluations.
 
 We decided to evaluate wear-leveling against NVMalloc and allocation performance against NVMalloc, as well as glibc,
 which is compared to provide a performance baseline. 
@@ -639,13 +640,13 @@ First, we evaluate the ability of our allocator to avoid NVM wear-out using a si
 In NVMalloc, for every allocation, the program writes the allocated block once, then use Pin\cite{luk2005pin} to record store to memory and compared the total writes of each block.
 In this method, the total writes depends on not only the allocator itself but alse the test program behavior,
 which we think may not be necessary and even worse, not be accurate in evaluating the wear-leveling ability of memory allocator.
-we think it is more accurate to evaluate the allocation frequency of each block to illustrate the ability of wear-leveling.
+It is more accurate to evaluate the allocation frequency of each block to illustrate the ability of wear-leveling.
 More specificly, we run test to get the total allocation memory address, which can be stored in a set \textbf{V}.
 If one specific memory address are allocated twice by the allocator, the address is stored once in set \textbf{V}.
 The more evenly the addresses in \textbf{V} distribute, the better the wear-leveling policy is.
 Thus we use (total allocation time)/(sizeof \textbf{V}) as average allocation frequency to metric the wear-leveling performance.
 
-Figure~\ref{fig:eval_1} and Figure~\ref{fit:eval_3} show the result of wear-leveling based on the metric described above with uniform allocation of 128 byte and random distribution allocation between 64 and 512 bytes.
+Figure~\ref{fig:eval_1} and Figure~\ref{fig:eval_3} show the result of wear-leveling based on the metric described above with uniform allocation of 128 bytes and random distribution allocation between 64 and 512 bytes.
 Since Wamalloc use a more elaborate and accurate wear-leveling policy than NVMalloc,
 it is expectded that wamalloc performs better than NVMalloc.
 
@@ -669,48 +670,87 @@ while the value of that in Wamalloc is about 1.98,
 indicating Wamalloc performs better than NVMalloc under the workloads of uniform allocation.
 In Figure~\ref{fig:eval_3},
 Wamalloc also performs better than NVMalloc under the workload of random allocation.
-This is explained by using the 4-ary heap implementing an accurate and elaborate wear-leveling policy.
+This can be explained by using the 4-ary heap implementing an accurate and elaborate wear-leveling policy.
 
 However, it is meaningless to compare the average allocation frequency without comparing the physical memory consumption.
 A simple allocator that allocate every memory block just once and never use that memory again, could make the average allocation frequency per block to be 1, while at the meantime it consume plenty of physical memory, causing it to be a useless allocator.
 Thus, next we need also measure the memory consumption of above evaluations under uniform and random allocation.
 
-Figure~\ref{fig:eval_2} and Figure~\ref{fig:eval_4} show the total memory consumption under the same workloads in Figure~\ref{fig:eval_1} and Figure~\ref{fig:eval_3}.
-We can conclude from these figures that 
-Wamalloc is much more economic in physical memory usage than NVMalloc.
+Figure~\ref{fig:eval_2} and Figure~\ref{fig:eval_4} show the total memory consumption under the same workloads as that in Figure~\ref{fig:eval_1} and Figure~\ref{fig:eval_3}.
+We can conclude from these results that 
+Wamalloc is more economic in physical memory usage than NVMalloc.
 Under uniform allocation, NVMalloc consumes nearly twice more memory than that Wamalloc consumes.
 Under random allocation, the curve of memory consumption of NVMalloc and Wamalloc tend to be linear, 
 however, Wamalloc still consumes less physical memory than NVMalloc by a constant difference.
 
-\begin{figure}[ht]
+\begin{figure}[t]
 \centering
 \includegraphics[width=3in]{eval_2.png}
 \caption{physical memory consumption under uniform allocations(128byte)}
 \label{fig:eval_2}
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}[t]
 \centering
 \includegraphics[width=3in]{eval_4.png}
 \caption{physical memory consumption under random allocations}
 \label{fig:eval_4}
 \end{figure}
 
-In the above evalutions, we can arrive the conclusion that
-Wamalloc perform better than NVMalloc not only in the wear-leveling policy,
+In the above evalutions, we arrive the conclusion that
+Wamalloc performs better than NVMalloc not only in the wear-leveling policy,
 but also in the physical memory consumptions.
 
 \subsection{allocation performance}
 
-Now, We are going to compare the allocation performance of each different allocator,
+Now, We are going to compare the allocation performance of Wamalloc against different allocators,
 which is a crucial metric since it will affect the overall performance of a program.
 Specificlly, we compare the average allocation time under workloads of different parrallel threads against NVMalloc.
-We also add the gblic malloc(version 2.21) into comparison so that it can provide a performance baseline.
+We also add the gblic malloc(version 2.21) into comparison to provide a performance baseline.
+Unfortunately, NVMalloc does not support multithreading,
+so we modify the source code of NVMalloc to make multithreading supported.
 
-Unfortunately, NVMalloc does not support multithreading
-so we modify the source code of NVMalloc to make multithreading supported in NVMalloc.
+First, we evaluate the average allocation time as the number of parrallel threads increases
+under the workload of uniform(128 bytes) and random(64 and 512 bytes) allocation without freeing any memory block.
+Since wamalloc uses a thread-cache structure and has a very short critical path using locks as few as possible,
+the average allocation time should be little related to the number of threads.
+These expectations are confirmed by the result of our evaluations shown in Figure~\ref{fig:eval_5} and Figure~\ref{fig:eval_6}.
+From the result we can see that Wamalloc outperforms both glibc and NVMalloc in this evaluation.
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=3in]{eval_5.png}
+\caption{average allocation time under uniform allocations(128byte)}
+\label{fig:eval_5}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=3in]{eval_6.png}
+\caption{average allocation time under random allocations}
+\label{fig:eval_6}
+\end{figure}
+
+Next, a second benchmark was run in which the program is extended to free all the memory after allcations, the runtime of which was included in the measurement of average allocation time.
+Allocating and then freeing is a more common scenario in most applications, and it is more complicated than just allocating the memory in a multithread environment,
+since freeing may cause some changes of state of chunk or even some chunk movements from local heap to global heap.
+The evaluation result is shown in Figure~\ref{fig:eval_7}.
+Malloc in Glibc performs better when freeing is involved, but the peformance still falls behind Wamalloc by a very small gap.
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=3in]{eval_7.png}
+\caption{performance comparison when freeing memory after allocations under random allocations}
+\label{fig:eval_7}
+\end{figure}
 
 \subsection{Evalution Summary}
+
+As demonstrated, 
+the wear-leveling policy of Wamalloc performs better than NVMalloc.
+but also in the physical memory consumptions.
 
 % ref nvm_malloc
 
