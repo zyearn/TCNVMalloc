@@ -101,7 +101,6 @@ one who did all the really hard work.}\\
 % is the number that will appear on the first page PLUS the
 % number that will appear in the \additionalauthors section.
 
-
 \maketitle
 
 \begin{abstract}
@@ -114,14 +113,14 @@ Note that after the notification of acceptance, there will be an updated style f
 
 \section{Introduction}
 
-Dynamic random-access memory(DRAM) has been used as the main memory of computer system for a long time, which is a type of random-access memory that stores each bit of data in a separate capacitor within an integrated circuit. 
+For decades, dynamic random-access memory(DRAM) has been used as the main memory of computer system.
 However, with the great demand of performance and enerygy-constrain application, the defects of DRAM have become a main concern,
 for example, the limited density and its high energy consumption. 
-In order to address these problems, an emerging new technology named non-volatile memory(NVM) has been proposed, such as Phase-change memory(PCM), spin torque, and memristor. 
+In order to address these problems, an emerging new technology named non-volatile memory(NVM) has been proposed, such as Phase-change memory(PCM), spin transfer torque(STT-RAM), and memristor. 
 NVM has the advantages of low latency, low power consumption and byte-addressable, which makes it a better alternative when compared  to DRAM.
 
-However, some non-volatile memories suffer from limited write endurance. 
-Let us take PCM as example. A typical PCM cell permanently fails after nearly $10^7$ to $10^9$ writes. 
+However, non-volatile memories suffer from limited write endurance. 
+Let us take  as example. A typical PCM cell permanently fails after nearly $10^7$ to $10^9$ writes. 
 In such circumstance, a poorly designed allocator will break the PCM in a short time. 
 %Moreover, many hardware-level wear-leveling policies have been proposed. 
 %But the popularization of these specified hardware is much slower than the popularization of NVM in the near future. 
@@ -135,7 +134,7 @@ Specifically, Wamalloc concerns three main aspects of allocator:
 (3) metadata memory write-reduction.
 First, we provide a wear-aware memory allocation policy without degrading the performance when compared to other NVM and DRAM allocators.
 Besides, we solve the application level wear-leveling problem by adding a level of indirection.
-If an application calls malloc-like function to get a writeable PCM address, excessive writes to this specific PCM memory could rapidly destroy it. 
+If an application request memory throughto get a writeable PCM address, excessive writes to this specific PCM memory could rapidly destroy it. 
 This is not what a memory allocator can control without explicit hardware modifications.
 It remains a problem we must solve otherwise PCM will be damaged much earlier than we expect.
 Thus, we design a method that allow applications do the wear-leveling without the modifications in hardware.
@@ -151,7 +150,7 @@ Our contributions can be summarized as follows:
     \item Considering application level wear-leveling, 
         we propose a mechanism to handle the problem that too many writes to a specific memory address will cause NVM to be damaged more quickly.
         As we can see in the later section, this mechanism can be easily implemented using the Wamalloc allocator.
-    \item We implement Wamalloc as a userspace library, which depends on no special requirements on operating system and hardware modifications.
+    \item We implement Wamalloc as an userspace library, which depends on no special requirements on operating system and hardware modifications.
 \end{enumerate}
 
 We have implemented a prototype version of Wamalloc and evaluated its performance and some critical aspects against state-of-the-art memory allocators. 
@@ -159,8 +158,73 @@ Experiment shows that for most cases Wamalloc outperforms prior system in averag
 
 \section{Background and Assumptions}
 
-TODO.
-[img] NVRAM在系统中的位置
+In this section, we will briefly introduce the non-volatile memory and
+make some assumptions about operating system support for these memories.
+
+\subsection{Non-Volatile Memory}
+
+These new emerging memory technologie hope to fill the gap boundary between the main memory and external storage.
+They are fast, persistent and byte addressable, which make them the best candidates for DRAM.
+Three typical technologies are phase change memory, memristor and spin transfer torque .
+
+Let us take PCM as an illustration. PCM is a non-volatile memory that exploits the unique behaviour of chalcogenide glass.
+It stores bits by heating a nanoscale piece of chalcogenide glass and makes it to change state by injecting current through memory cell.
+Specificly, there are two states.
+One is called a crystalline state representing state (1), and the other is called an amorphous state representing state (0).
+
+Besides PCM, the other two alternative technologies(memristor and spin transfer torque) are also completing to be candidates for DRAM.
+Although These technologies have good characteristics to be the main memory, they suffer from different kinds of weakness, such as endurance and asymmetry of read and write latency. 
+For example, memristor may wear-out after $10^8$ writes, while DRAM has an unlimited endurance.
+Table~\ref{tab:NVMvsDRAM} presents the different characteristics of different NVM and DRAM.
+
+\begin{table}[h]
+    \centering
+    \caption{characteristic of NVM and DRAM}
+    \begin{tabular}{|c|c|c|c|} \hline
+        & Read & Write & Endurance\\ \hline
+        DRAM & 60ns & 60ns & nearly unlimited\\ \hline
+        PCM & 50-85ns & 150ns-1us & $10^8$-$10^{12}$\\ \hline
+        Memristor & 100ns & 100ns & $10^8$\\ \hline
+        STT-RAM & 6ns & 13ns & $10^{15}$\\ \hline
+    \end{tabular}
+\label{tab:NVMvsDRAM}
+\end{table}
+
+
+In the following sections, we will collectively refer to these memories as NVM, 
+because our focus is emphasized on an efficient wear-leveling policy based on non-volatile memory,
+instead of the performance of different kinds of NVM.
+
+\subsection{NVM in memory system}
+
+Due to the limitations(limited endurance and slow writes)of NVM,
+NVM is not likely to replace DRAM as the only main memory in computer system.
+We assume that at least for write-intensive applications,
+systems will use a combination of DRAM and NVM, using their respective advantages.
+The logical view of the hybrid memory system is shown in Figure~\ref{fig:NVMposition}.
+THe NVM library layer provides the ability for applications to manipulate NVM memory pages.
+
+Wamalloc is proposed to be in the layer of NVM library, aiming at providing an efficient wear-aware NVM allocator.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=1.5in]{NVMposition.png}
+\caption{logical view of memory system}
+\label{fig:NVMposition}
+\end{figure}
+
+\subsection{Operating system support}
+
+We expect that the virtual memory mechanism can map both volatile and non-volatile memory into the process's address space,
+which means a page table(e.g.,in x86) or a inverted page table(e.g.,in PowerPC) is involved when a memory address is read or written.
+An application can request NVM memory pages from operating system via an extended system call mmap.
+
+In order to restore to the state that a process was previously in when process restart happens, 
+operating system must be able to allow a process to remap its original NVM memory pages to its virtual address space.
+Thus, operating system should provide a mechanism to retrive NVM memory pages based on some dedicated NVM management systems.
+There are several existing systems to handle this problem\cite{coburn2011nv, satyanarayanan1994lightweight, volos2011mnemosyne}.
+In this paper, we assume operating system should provide some access control on NVM memory pages, 
+which may be similar to that in file system.
 
 \section{Design of Wamalloc}
 
@@ -457,26 +521,36 @@ which means the possible lock contention penalty will be amortized so that it wo
 \subsection{Data Placement In DRAM And NVM}
 
 Metadata in Wamalloc can be classified into two different categories: data description and space description.
-In this section, we will discuss to which category metadatas previously mentioned belong and how to place them in hybrid memory system.
-In Wamalloc, metadata includes chunk header, local heap and global heap.
-Chunk header belongs to data description category, in which it manages the blocks information inside a chunk and some chunk-related data, such as remaining free block counts, size class of current chunk, chunk owner, chunk state, chunk wear-leveling count and so on.
-While local heap and global heap belong to space description, it manages where allocator can find the appropriate available chunks.
+In this section, we will discuss which category metadatas previously mentioned belong to and how to place them in hybrid memory system.
+In Wamalloc, metadatas include chunk header, local heap and global heap.
+Chunk header belongs to data description category, 
+in which it manages the blocks information inside a chunk and some chunk-related data, 
+such as the count of remaining free blocks, size class of the current chunk,
+chunk owner, chunk state, wear-leveling count of the chunk and so on.
+While local heap and global heap belong to space description,
+which are used to advise where the allocator can find the appropriate available chunks.
 
 In traditional memory allocators, metadata and data are coupled with each other very tightly.
-When an allocation or a deallocation request comes, there will be plenty of small metadata writes of changing pointer to chain its previous block and next block in order to split large space or merge small continuous spaces into a large free space.
-This access pattern will decrease the lifetime of NVM because of the endurance problem.
-Hence it is not what we expect in NVM allocator.
+When an allocation or a deallocation request comes, 
+there will be plenty of small metadata writes of changing pointer to chain its previous block and next block 
+in order to split large space or merge small continuous spaces into a large free space.
+This access pattern will probably decrease the lifetime of NVM because of the frequent writes to metadatas.
+However, it is not what we expect in NVM allocator.
 
-In Wamalloc, we keep all metadatas in DRAM except chunk header. 
-The reason is that when a thread frees a memory block back to allocator, a memory pointer \textbf{ptr} is passed as argument to Wamalloc and its chunk header is easily computed by \textbf{ptr},
-otherwise another mechanism would be introduced to remember this relationship, which will certainly cause an extra time cost.
-At the meantime, Wamalloc keeps the writing frequency of chunk header as less as possible. Figure~\ref{fig:globalview} show the global view of Wamalloc.
-\begin{figure}[ht!]
-\centering
-\includegraphics[width=3.2in]{globalview.png}
-\caption{Global view}
-\label{fig:globalview}
-\end{figure}
+In Wamalloc, we keep all metadatas in DRAM except for chunk header. 
+Putting Chunk header in NVM is because when a thread frees a memory block back to allocator, 
+a memory pointer \textbf{ptr} is passed as argument to Wamalloc and 
+its chunk header is easily computed by \textbf{ptr}(e.g., a simple subtraction),
+otherwise another mechanism should be introduced to remember the relationship between a memory address and its chunk header,
+which will certainly cause an extra time cost.
+At the meantime, Wamalloc keeps the writing frequency of chunk header as less as possible. 
+%Figure~\ref{fig:globalview} show the global view of Wamalloc.
+%\begin{figure}[ht!]
+%\centering
+%\includegraphics[width=3.2in]{globalview.png}
+%\caption{Global view}
+%\label{fig:globalview}
+%\end{figure}
 
 \subsection{Allocation Algorithm}
 
@@ -657,14 +731,14 @@ under uniform allocation of 128 bytes and random allocation between 64 and 512 b
 Since Wamalloc use a more elaborate and accurate wear-leveling policy than NVMalloc,
 it is expected that Wamalloc performs better than NVMalloc.
 
-\begin{figure}[ht]
+\begin{figure}[t]
 \centering
 \includegraphics[width=3in]{eval_1.png}
 \caption{uniform allocations(128byte)}
 \label{fig:eval_1}
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}[t]
 \centering
 \includegraphics[width=3in]{eval_3.png}
 \caption{random allocations between 64 and 512 bytes}
@@ -812,16 +886,16 @@ and the \textbf{.cls} and \textbf{.tex} files that it describes.
 % Example of an appendix; typically would start on a new page
 %pagebreak
 
-\begin{appendix}
-You can use an appendix for optional proofs or details of your evaluation which are not absolutely necessary to the core understanding of your paper. 
+%\begin{appendix}
+%You can use an appendix for optional proofs or details of your evaluation which are not absolutely necessary to the core understanding of your paper. 
 
-\section{Final Thoughts on Good Layout}
-Please use readable font sizes in the figures and graphs. Avoid tempering with the correct border values, and the spacing (and format) of both text and captions of the PVLDB format (e.g. captions are bold).
+%\section{Final Thoughts on Good Layout}
+%Please use readable font sizes in the figures and graphs. Avoid tempering with the correct border values, and the spacing (and format) of both text and captions of the PVLDB format (e.g. captions are bold).
 
-At the end, please check for an overall pleasant layout, e.g. by ensuring a readable and logical positioning of any floating figures and tables. Please also check for any line overflows, which are only allowed in extraordinary circumstances (such as wide formulas or URLs where a line wrap would be counterintuitive).
+%iAt the end, please check for an overall pleasant layout, e.g. by ensuring a readable and logical positioning of any floating figures and tables. Please also check for any line overflows, which are only allowed in extraordinary circumstances (such as wide formulas or URLs where a line wrap would be counterintuitive).
 
-Use the \texttt{balance} package together with a \texttt{\char'134 balance} command at the end of your document to ensure that the last page has balanced (i.e. same length) columns.
+%Use the \texttt{balance} package together with a \texttt{\char'134 balance} command at the end of your document to ensure that the last page has balanced (i.e. same length) columns.
 
-\end{appendix}
+%\end{appendix}
 
 \end{document}
