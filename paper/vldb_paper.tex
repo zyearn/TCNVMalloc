@@ -10,6 +10,9 @@
 \usepackage{amsmath}
 \usepackage{algorithm}
 \usepackage[noend]{algpseudocode}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{authblk}
 
 
 \begin{document}
@@ -50,56 +53,17 @@
 % without further effort on your part as the last section in
 % the body of your article BEFORE References or any Appendices.
 
-\numberofauthors{3} %  in this sample file, there are a *total*
 % of EIGHT authors. SIX appear on the 'first-page' (for formatting
 % reasons) and the remaining two appear in the \additionalauthors section.
 
-\author{
-% You can go ahead and credit any number of authors here,
-% e.g. one 'row of three' or two rows (consisting of one row of three
-% and a second row of one, two or three).
-%
-% The command \alignauthor (no curly braces needed) should
-% precede each author name, affiliation/snail-mail address and
-% e-mail address. Additionally, tag each line of
-% affiliation/address with \affaddr, and tag the
-% e-mail address with \email.
-%
-% 1st. author
-\alignauthor
-Ben Trovato\titlenote{Dr.~Trovato insisted his name be first.}\\
-       \affaddr{Institute for Clarity in Documentation}\\
-       \affaddr{1932 Wallamaloo Lane}\\
-       \affaddr{Wallamaloo, New Zealand}\\
-       \email{trovato@corporation.com}
-% 2nd. author
-\alignauthor
-G.K.M. Tobin\titlenote{The secretary disavows
-any knowledge of this author's actions.}\\
-       \affaddr{Institute for Clarity in Documentation}\\
-       \affaddr{P.O. Box 1212}\\
-       \affaddr{Dublin, Ohio 43017-6221}\\
-       \email{webmaster@marysville-ohio.com}
-% 3rd. author
-\alignauthor Lars Th{\Large{\sf{\o}}}rv{$\ddot{\mbox{a}}$}ld\titlenote{This author is the
-one who did all the really hard work.}\\
-       \affaddr{The Th{\large{\sf{\o}}}rv{$\ddot{\mbox{a}}$}ld Group}\\
-       \affaddr{1 Th{\large{\sf{\o}}}rv{$\ddot{\mbox{a}}$}ld Circle}\\
-       \affaddr{Hekla, Iceland}\\
-       \email{larst@affiliation.org}
-%\and  % use '\and' if you need 'another row' of author names
-% 4th. author
-}
-% There's nothing stopping you putting the seventh, eighth, etc.
-% author on the opening page (as the 'third row') but we ask,
-% for aesthetic reasons that you place these 'additional authors'
-% in the \additional authors block, viz.
-\additionalauthors{Additional authors: John Smith (The Th{\o}rv\"{a}ld Group, {\texttt{jsmith@affiliation.org}}), Julius P.~Kumquat
-(The \raggedright{Kumquat} Consortium, {\small \texttt{jpkumquat@consortium.net}}), and Ahmet Sacan (Drexel University, {\small \texttt{ahmetdevel@gmail.com}})}
-\date{30 July 1999}
-% Just remember to make sure that the TOTAL number of authors
-% is the number that will appear on the first page PLUS the
-% number that will appear in the \additionalauthors section.
+\author{Jiashun Zhu}
+\author{Author B}
+\author{Author C}
+\affil{Department of Computer Science and Engineering}
+\affil{Shanghhai Jiao Tong University}
+\affil{Email: {zhujiashun2010, xxx, xxx}@gmail.com}
+
+\renewcommand\Authands{ and }
 
 \maketitle
 
@@ -678,12 +642,12 @@ More specially, we design a function as Table~\ref{tab:api} shows.
 
 \begin{table}[h]
 \centering
-\caption{APIs of application wear-leveling}
 \begin{tabular}{|c|c|} \hline
-API&Description\\ \hline
+    API&Description\\ \hline
     wa\_write(dst, src, n)& copy n bytes from src to dst.\\ \hline
 \end{tabular}
 \label{tab:api}
+\caption{APIs of application wear-leveling}
 \end{table}
 
 The \textbf{dst} parameter in \textbf{wa\_write} is the address first returnen by Wamalloc when an application makes an allocation request.
@@ -886,19 +850,17 @@ Introducing recovery features causes nvm\_malloc incurring higher costs
 because of the reserve/activate mechanism and the lack of the maturity as a research prototype mentioned by its authors.
 A follow-up comparison to the mature version of nvm\_malloc is subject to future work.
 
+\section{Conclusion and future work}
 
-
-\section{Conclusions}
-This paragraph will end the body of this sample document.
-Remember that you might still have Acknowledgments or
-Appendices; brief samples of these
-follow.  There is still the Bibliography to deal with; and
-we will make a disclaimer about that here: with the exception
-of the reference to the \LaTeX\ book, the citations in
-this paper are to articles which have nothing to
-do with the present subject and are used as
-examples only.
-%\end{document}  % This is where a 'short' article might terminate
+In this paper, we observe the fact that
+no NVM allocators at the time of writing can provide both an accurate wear-leveling policy and a good allocation performance simultaneously.
+Based on the observation, we propose an efficient wear-aware NVM allocator, Wamalloc,
+which uses a thread-cache memory architecture causing nearly no lock contention in critical path,
+and an elaborate hybrid wear-leveling policy to improve lifetime of NVM.
+The evaluation results show that...
+In our future work, we will continue to optimize the wear-leveling policy based on our byhrid method,
+or a log-structure way\cite{rumble2014log} to organize NVM memory.
+Performance scalability is also subject to future work.
 
 % ensure same length columns on last page (might need two sub-sequent latex runs)
 \balance

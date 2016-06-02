@@ -1,9 +1,9 @@
 set title ""
-set xlabel 'Number of thread'
+set xlabel 'Number of threads'
 set ylabel 'Average time in us'
 set yrange [-0.5:3]
 set key box
-set terminal png
+set terminal png size 800,500
 set output 'eval_5.png'
 
 plot 'eval_5.res' u 1:2 w lp pt 5 title "wamalloc",\

@@ -1,9 +1,10 @@
 set title ""
 set xlabel 'Number of malloc'
 set ylabel 'Average allocation frequency per block'
-set yrange [1.9:2.1]
+set yrange [1.9:2.05]
 set key box
-set terminal png
+set terminal png size 800,500
+#set terminal png
 set output 'eval_1.png'
 
 plot 'eval_1.res' u 1:2 w lp pt 5 title "wamalloc",\

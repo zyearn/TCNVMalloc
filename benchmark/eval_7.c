@@ -38,7 +38,6 @@ void *twork(void *arg) {
 
 #endif
 
-        if (rand() % 2 == 0) {
 #ifdef WA_MALLOC
         wa_free(m);
 #else
@@ -48,7 +47,6 @@ void *twork(void *arg) {
         free(m);
 #endif
 #endif
-        }
     }
 
     return NULL;
