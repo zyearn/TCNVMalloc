@@ -104,12 +104,15 @@ one who did all the really hard work.}\\
 \maketitle
 
 \begin{abstract}
-The abstract for your paper for the PVLDB Journal submission.
-The template and the example document are based on the ACM SIG Proceedings  templates. This file is part of a package for preparing the submissions for review. These files are in the camera-ready format, but they do not contain the full copyright note.
-Note that after the notification of acceptance, there will be an updated style file for the camera-ready submission containing the copyright note.
+Non-volatile memory(NVM) is a promising DRAM replacement in computer systems due to its attractive characteristics.
+However, low endurance problem has limited its practical applications.
+In this paper, we propose Wamalloc, an efficient software level NVM memory allocator to extend PCM's lifetime.
+An elaborate hybrid wear-leveling policy is proposed in this paper to achieve wear-leveling without hardware overhead.
+The evaluations show that under uniform and random workloads,
+the wear-leveling of Wamalloc outperforms that of NVMalloc about xx\% and xx\% ,
+and the total memory consumption of Wammaloc is xxX and xxX less than NVMalloc, respecetively.
+In addition, the allocation performance is far better than the standard glibc malloc and NVMalloc.
 \end{abstract}
-
-
 
 \section{Introduction}
 
@@ -128,7 +131,7 @@ In such circumstance, a poorly designed allocator will break the PCM in a short 
 In order to tackle this problem and support a software level wear-aware memory allocator, a new memory allocator targeted for NVM platform must be designed and used in nowadays’ applications running on NVM.
 
 In this paper, we propose a wear-aware allocator that provide wear-awareness without degrading the performance of allocator compared with state-of-the art allocator. 
-Specifically, Wamalloc concerns three main aspects of allocator:
+Specificly, Wamalloc concerns three main aspects of allocator:
 (1) a hybrid(fine-grained and coarse-grained) and efficient wear-aware allocation policy;
 (2) application level wear-leveling;
 (3) metadata memory write-reduction.
@@ -137,7 +140,7 @@ Besides, we solve the application level wear-leveling problem by adding a level 
 If an application request memory throughto get a writeable PCM address, excessive writes to this specific PCM memory could rapidly destroy it. 
 This is not what a memory allocator can control without explicit hardware modifications.
 It remains a problem we must solve otherwise PCM will be damaged much earlier than we expect.
-Thus, we design a method that allow applications do the wear-leveling without the modifications in hardware.
+Thus, we design a method that allow applications do the wear-leveling without modifications in hardware.
 At last, Wamalloc decouples metadata and data management.
 Generally speaking, putting metadata into DRAM will decrease plenty of writes to NVM, which will probably extend the lifetime of PCM.
 
@@ -155,6 +158,8 @@ Our contributions can be summarized as follows:
 
 We have implemented a prototype version of Wamalloc and evaluated its performance and some critical aspects against state-of-the-art memory allocators. 
 Experiment shows that for most cases Wamalloc outperforms prior system in average block allocation times and allocation latency.
+
+%To our knowledge, Wamalloc ...
 
 \section{Background and Assumptions}
 
@@ -179,7 +184,6 @@ Table~\ref{tab:NVMvsDRAM} presents the different characteristics of different NV
 
 \begin{table}[h]
     \centering
-    \caption{characteristic of NVM and DRAM}
     \begin{tabular}{|c|c|c|c|} \hline
         & Read & Write & Endurance\\ \hline
         DRAM & 60ns & 60ns & nearly unlimited\\ \hline
@@ -187,6 +191,7 @@ Table~\ref{tab:NVMvsDRAM} presents the different characteristics of different NV
         Memristor & 100ns & 100ns & $10^8$\\ \hline
         STT-RAM & 6ns & 13ns & $10^{15}$\\ \hline
     \end{tabular}
+    \caption{characteristic of NVM and DRAM}
 \label{tab:NVMvsDRAM}
 \end{table}
 
@@ -197,7 +202,7 @@ instead of the performance of different kinds of NVM.
 
 \subsection{NVM in memory system}
 
-Due to the limitations(limited endurance and slow writes)of NVM,
+Due to the limitations(limited endurance and slow writes) of NVM,
 NVM is not likely to replace DRAM as the only main memory in computer system.
 We assume that at least for write-intensive applications,
 systems will use a combination of DRAM and NVM, using their respective advantages.
@@ -844,7 +849,44 @@ Wamalloc also performs better than NVMalloc and glibc malloc.
 
 \section{Related work}
 
-TODO.
+The emerging technology of NVM has gained more and more attentions in research community.
+Proposition were made for different levels of computer system, 
+such as using NVM as a fast buffer for flash-based storage\cite{greenan2007prims}, 
+or as a supplement for DRAM exploiting the benefit of the hybrid memory system.
+
+In the research area of how to extend the endurance of NVM,
+plenty of works have been done at different levels.
+
+At hardware level, ping zhou et al.\cite{zhou2009durable} proposed a suite of hierarchical techniques to
+prolong the lifetime of PCM-based main memory: 
+redundant bit-write removal, row shifting, and segment swapping.
+Lei Jiang et al.\cite{jiang2012improving} proposed write truncation (WT) and form switch (FS),
+which is a way to avoid fully writing a small set of difficult-to-write cells, to speedup write and read operations in MLC PCM.
+Qureshi, Moinuddin K et al.\cite{qureshi2009enhancing} and Shao, Zili et al.\cite{shao2012ptl} proposed adding a translation layer
+between the physical address and the logical address in the memory controller.
+Ferreira, Alexandre P et al.\cite{ferreira2010increasing} proposed a technique that involved 
+writeback minimization with new cache replacement policies, and wrote only the bit actually changed.
+
+At software level, there are also much works proposed to minimize to the memory writes to NVM, 
+such as the research work by Hu, Jingtong et al.\cite{hu2013software}.
+Early in the time of research on NVM, mnemosyne\cite{volos2011mnemosyne} and NV-heaps\cite{coburn2011nv} provided complete suites to working with NVM, which involed kernel modifications, user mode liraries and so on.
+However, the endurance problem is not considered too much.
+
+A more specific NVM allocator is NVMalloc by Moraru et al.\cite{moraru2013consistent},
+intended to ba an efficient, general-purpose NVM allocator with a wear-leveling policy using timestamp.
+More specificly, NVMalloc curbs the write frequency of memory block no higher than 1/T, which is a predefined threshold.
+Further more, NVMalloc decouples metadata and data to reduce metadata write.
+The focus of NVMalloc is mainly on wear-aware algorithms to increase the lifetime of NVM.
+The evaluation shows Wamalloc outperforms NVMalloc in terms of wear-leveling policy, total memory consumption and allocation performance.
+
+Another NVM allocator is nvm\_malloc proposed by Schwalb et al.\cite{schwalbnvm},
+presenting a general-purpose NVM allocation concept with fast builtin recovery feartures
+as well as fine-grained access to NVM in a safe fashion.
+Introducing recovery features causes nvm\_malloc incurring higher costs
+because of the reserve/activate mechanism and the lack of the maturity as a research prototype mentioned by its authors.
+A follow-up comparison to the mature version of nvm\_malloc is subject to future work.
+
+
 
 \section{Conclusions}
 This paragraph will end the body of this sample document.
@@ -862,13 +904,13 @@ examples only.
 \balance
 
 %ACKNOWLEDGMENTS are optional
-\section{Acknowledgments}
-This section is optional; it is a location for you
-to acknowledge grants, funding, editing assistance and
-what have you.  In the present case, for example, the
-authors would like to thank Gerald Murray of ACM for
-his help in codifying this \textit{Author's Guide}
-and the \textbf{.cls} and \textbf{.tex} files that it describes.
+%\section{Acknowledgments}
+%This section is optional; it is a location for you
+%to acknowledge grants, funding, editing assistance and
+%what have you.  In the present case, for example, the
+%authors would like to thank Gerald Murray of ACM for
+%his help in codifying this \textit{Author's Guide}
+%and the \textbf{.cls} and \textbf{.tex} files that it describes.
 
 
 % The following two commands are all you need in the
