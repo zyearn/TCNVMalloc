@@ -34,7 +34,7 @@
 *.bbl
 *.blg
 *.dvi
-paper/vldb_paper.pdf
+*.pdf
 
 
 # Debug files
