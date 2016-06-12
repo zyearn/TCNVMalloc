@@ -367,17 +367,11 @@
 % use a multiple column layout for up to two different
 % affiliations
 
-\author{\IEEEauthorblockN{Authors Name/s per 1st Affiliation (Author)}
-\IEEEauthorblockA{line 1 (of Affiliation): dept. name of organization\\
-line 2: name of organization, acronyms acceptable\\
-line 3: City, Country\\
-line 4: Email: name@xyz.com}
-\and
-\IEEEauthorblockN{Authors Name/s per 2nd Affiliation (Author)}
-\IEEEauthorblockA{line 1 (of Affiliation): dept. name of organization\\
-line 2: name of organization, acronyms acceptable\\
-line 3: City, Country\\
-line 4: Email: name@xyz.com}
+\author{\IEEEauthorblockN{Jiashun Zhu, xxxx, xxxx }
+\IEEEauthorblockA{
+Department of Computer Science and Engineering\\
+Shanghai Jiao Tong University\\
+Email: zhujiashun2010, xxxx, xxxxx@gmail.com}
 }
 
 % conference papers do not typically use \thanks and this command
@@ -436,24 +430,36 @@ non-volatile memory; memory allocator; wear-leveling
 
 For decades, dynamic random-access memory(DRAM) has been used as the main memory of computer system.
 However, with the great demand of performance and energy-constrain applications, the defects of DRAM have become a main concern,
-for example, the limited density and its high energy consumption. 
-In order to address these problems, an emerging new technology named non-volatile memory(NVM) has been proposed, such as Phase-change memory(PCM), spin transfer torque(STT-RAM), and memristor. 
+for example, the limited density\cite{mandelman2002challenges}
+and its high energy consumption\cite{lefurgy2003energy}. 
+In order to address these problems, an emerging new technology named non-volatile memory(NVM) has been proposed, 
+such as Phase-change memory(PCM)\cite{huang2009phase},
+spin transfer torque(STT-RAM)\cite{apalkov2013spin}, and memristors\cite{ho2009nonvolatile}. 
 NVM has the advantages of low latency, low power consumption and byte-addressable,
 which make it a better alternative to be the main memory when compared with DRAM.
 
 However, non-volatile memories suffer from limited write endurance. 
-Let us take PCM as an example. A typical PCM cell permanently fails after nearly $10^7$ to $10^9$ writes. 
+For example, a typical PCM cell permanently fails after nearly $10^7$ to $10^9$ writes. 
 In such a circumstance, a poorly designed memory allocator will break the PCM in a short time. 
 For purpose of tackling this problem and support a software level wear-aware memory allocator,
 a new memory allocator targeted for NVM platform must be designed and used in nowadays’ applications running in NVM.
 
-%no NVM allocators at the time of writing can provide both an accurate wear-leveling policy and a good allocation performance simultaneously.
-In this paper, we propose a wear-aware allocator that provide wear-leveling without degrading the performance of allocator compared with the state-of-the-art allocator. 
-Specificly, Wamalloc concerns three main aspects of allocator:
-First, we propose a novel hybrid(fine-grained and coarse-grained) wear-leveling policy that are more accurate;
-Besides, we use a thread-cache structure and lock optimizations that result in a better performance compared with other NVM and DRAM allocators.
-At last, Wamalloc decouples metadata and data management.
-Putting metadatas into DRAM will decrease plenty of writes to NVM, which will probably extend the lifetime of PCM.
+There are already some existing research works on memory allocators for NVM\cite{volos2011mnemosyne,coburn2011nv,moraru2013consistent}.
+Unfortunately, none of these allocators can provide both an accurate wear-leveling policy
+and a good allocation performance simultaneously as shown in evaluation part,
+The reason is that they mainly focused on the whole toolboxs of NVM or the wear-leveling policy is not accurate enough.
+As a result, a new NVM allocator that is more accurate in wear-leveling and has a better performance is urgently expected.
+
+%no NVM allocators at the time of writing can 
+In this paper, we propose Wamalloc, 
+a wear-aware allocator that provide wear-leveling without degrading the performance of allocator 
+when compared with the state-of-the-art allocator. 
+Specificly, this paper introduces three main techniques of NVM allocator.
+First, we propose a novel hybrid(fine-grained and coarse-grained) wear-leveling policy that are proven to be more accurate;
+Besides, we use a thread-cache structure and lock optimizations that result in a better performance 
+compared with other NVM and DRAM allocators.
+At last, Wamalloc decouples metadata and data management,
+since putting metadatas into DRAM will decrease plenty of writes to NVM, which will probably extend the lifetime of PCM.
 
 Our contributions can be summarized as follows:
 \begin{enumerate}
@@ -464,9 +470,10 @@ Our contributions can be summarized as follows:
     \item We implement Wamalloc as an userspace library, which depends on no special requirements on operating system and hardware modifications.
 \end{enumerate}
 
-We have implemented a prototype version of Wamalloc and evaluated its performance and some critical aspects against several memory allocators.
+We have implemented a prototype version of Wamalloc and 
+evaluated its performance and some critical aspects against several memory allocators.
 Experiment shows that under both uniform and random workloads, 
-Wamalloc outperforms the prior allocators in aspect of average block allocation frequency, total memory consumption, and allocation latency.
+Wamalloc outperforms the prior allocators in aspect of average block allocation frequency, total memory consumption and allocation latency.
 
 %To our knowledge, Wamalloc ...
 
@@ -517,7 +524,7 @@ NVM is not likely to replace DRAM as the only main memory in computer system.
 We assume that at least for write-intensive applications,
 computer systems will use a combination of DRAM and NVM, taking their respective advantages.
 The logical view of the hybrid memory system is shown in Figure~\ref{fig:NVMposition}.
-THe NVM library layer provides the ability for applications to manipulate NVM memory pages.
+The NVM library layer provides the ability for applications to manipulate NVM memory pages.
 
 Wamalloc is proposed to be in the layer of NVM library, aiming at providing an efficient wear-aware NVM allocator.
 
@@ -539,7 +546,7 @@ operating system must be able to allow a process to remap its original NVM memor
 Thus, operating system should provide a mechanism to retrive NVM memory pages based on some dedicated NVM management systems.
 There are several existing systems to handle this problem\cite{coburn2011nv, satyanarayanan1994lightweight, volos2011mnemosyne}.
 In this paper, we assume that operating system has some access controls on NVM memory pages, 
-which may be similar to that in file system.
+which may be similar to that of filesystem.
 
 \section{Design of Wamalloc}
 
@@ -569,8 +576,7 @@ The structure of Wamalloc is showed in Figure~\ref{fig:arch}.
 Wamalloc maintains a local heap for each thread, and a global heap for all threads.
 The reason why we use such a design is from the obvious observation that if a request from a thread can be satisfied by its local heap,
 the allocation latency will be very low since there is no lock contention.
-However, there must be a global heap that manage all the memory that maintained by each thread,
-therefore a lock must be involved. 
+However, a global heap that manage all the memory will inevitably introduce a lock.
 One of our implementation focus is emphasized on how to reduce the usage of lock to the best of our ability.
 
 \begin{figure}
@@ -583,13 +589,15 @@ One of our implementation focus is emphasized on how to reduce the usage of lock
 Each local heap contains several fix-sized memory chunks.
 Each memory chunk is further divided into several memory blocks based on its size class.
 Each thread maintains several chunks, and Wamalloc treats memory blocks as basic allocation unit.
+How the memory blocks are allocated and how the chunks are moved between local heap and global heap
+are based on our wear-leveling policy to be described later.
 
 \subsection{Memory Chunk}
 
 Memory chunk is the basic unit that would be transferred between global heap and local heap. 
 A memory chunk consists of two parts: a small chunk header and a 64KB chunk body. 
-Chunk body is divided into several memory blocks based on its size class,
-obviously, with smaller size class comes more memory blocks. 
+Chunk body is divided into several memory blocks based on its size class.
+Obviously, with smaller size class comes more memory blocks. 
 Chunk header stores some metadatas such as the number of remaining free blocks, its size class and so on.
 
 Since a memory chunk body only contains 64KB memory, all the memory requests smaller than 64KB are regarded as small requests,
@@ -621,13 +629,14 @@ How to organize the free list will be discussed in the following wear-leveling p
 \subsubsection{How to choose chunk size}
 The size of memory chunk is very critical to the performance of Wamalloc. 
 If the chunk size is too small, 
-the memory block will be used up very soon and frequently communicating with the global heap will greatly decrease the performance.
+the memory blocks will be used up very soon
+Frequently communicating with the global heap will greatly decrease the performance.
 If the chunk size is too large, lots of memory blocks may remain clean or unused, which leads to a huge memory waste. 
 A working method used by many other allocators is to choose chunks of small size to serve small blocks, 
-and chunks of large size to serve large blocks.
-Then there will always be available usable memory blocks no matter what size class a chunk belongs to.
-The drawbacks are also obvious.
-Since the memory chunk size is different, it increases the complexity of global heap to manage these chunks.
+and chunks of large size to serve large blocks,
+then there will always be available usable memory blocks no matter what size class a chunk belongs to.
+The drawbacks are also obvious:
+since the memory chunk size is different, it increases the complexity of global heap to manage these chunks.
 Consequently this will cause the extra time penalty and the possible memory fragment, 
 which may result in more physical memory consumption than an application really needs.
 
@@ -649,35 +658,35 @@ Further, This design gives us several other benefits:
 
 Local heap is maintained by each thread. 
 It is set up when a thread makes the first memory request.
-Metadatas are stored in local heap, such as size class.
-Every memory chunk in the local heap can be classified into five categories: In-use, Waiting, Full, Not-available, Clean.
+Metadatas are stored in local heap, such as size class and pointers to usable chunks.
+Every memory chunk in the local heap can be classified into five categories: in-use, waiting, full, not-available, clean.
 
 
 \textbf{In-use chunk}. 
 When a thread makes an allocation request, 
 Wamalloc will first find the appropriate size class, 
-then find the currently using memory chunk and allocate memory block from it.
-All small memory requests are served by in-use chunk.
+then find the currently using memory chunk and allocate memory blocks from it.
+All small memory requests are served by in-use chunks.
 
 \textbf{Waiting chunk}. 
 Chunks in waiting list of the local heap are called waiting chunks. 
 Waiting chunks are the chunks in a partially allocated state. 
 When a thread use up the whole memory blocks in current in-use chunk,
-chunk of the same class size is a candidate waiting to be chosen as a new in-use chunk.
+waiting chunks of the same class size are candidates waiting to be chosen as a new in-use chunk.
 
 \textbf{Full chunk}. 
-After several memory requests to a particular size class, 
+After several memory requests of a particular size class, 
 a memory chunk may be out of blocks, which is called a full chunk.
-No more blocks can be allocated from a chunk in a Full state, 
-thus the following request will cause the allocator to get another usable chunk.
-When a block is freed, if the chunk it belongs to is in a full state, 
-this chunk will be added to the waiting list becoming a waiting chunk.
+No more blocks can be allocated from a chunk in full state, 
+thus the following requests will cause the allocator to get another usable chunk.
+When a block in a full chunk is freed,
+this full chunk turns to a waiting chunk, which will be added to the waiting list of current local heap.
 
 \textbf{Not-available chunk}.
 Consider all the things we discussed so far, 
 a typical life cycle of a memory chunk could be first used as in-use chunk, then waiting chunk, and back and forth repeatedly. 
 For the wear-aware purpose, that is not what we expect. 
-Thus we add a wear-count variable to each memory chunk and define an allocation threshold. 
+Thus we add a wear-count variable to each memory chunk and define an allocation threshold \textbf{WEAR\_LIMIT}.
 When a chunk is first allocated from global heap, its wear-count variable is set to zero.
 Every time a block is allocated from a chunk, its wear-count variable increases by one. 
 If the wear-count variable of a chunk reaches the predefined allocation threshold, 
@@ -689,11 +698,9 @@ which will be discussed in the following subsection.
 \textbf{Clean chunk}.
 After all the blocks in a waiting chunk are freed, 
 the waiting chunk can be used as a clean chunk without a specific size class.
-Hence it should be added to a free chunk pool, becoming a candidate for in-use chunk.
-The promotion strategy must be carefully designed to achieve a wear-leveling purpose.
-
-%Based on what has been discussed so far,
-%we can draw the state machine of the relationship between different kinds of chunk in Figure~\ref{fig:state}.
+Hence it should be added to the free chunk pool, becoming a candidate for in-use chunk of any size class
+How to allocate chunks from the free chunk pool must be carefully designed to achieve a wear-leveling purpose.
+%In summary, Figure~\ref{fig:state} shows the states of chunk and their transitions.
 
 %\begin{figure}[h]
 %\centering
@@ -703,10 +710,10 @@ The promotion strategy must be carefully designed to achieve a wear-leveling pur
 %\end{figure}
 
 In local heap,
-each thread maintains an array of in-use memory chunk, 
-an array of waiting chunk list, indexed by size class respectively, 
+each thread maintains an array of in-use memory chunks, 
+an array of waiting chunks list, indexed by size class respectively, 
 and a free list to hold clean chunks.
-The logical view of local heap and its relationship with memory chunk is shown in Figure~\ref{fig:heap}.
+The logical view of local heap and its relationship with memory chunks is shown in Figure~\ref{fig:heap}.
 
 \begin{figure}[h]
 \centering
@@ -731,11 +738,12 @@ The logic view of global heap is shown in Figure~\ref{fig:global}.
 \subsubsection{Classes of allocatable chunks}
 Global heap first requests a huge continuous raw memory from operating system
 and divide it into several chunks ready to be allocated to different threads.
-All the chunks starting from the free pointer or at the free list are ready to be allocated, 
+All the chunks starting from the free pointer(never allocated) or at the free list(reuse) are ready to be allocated, 
 just like what we have discussed in the previous subsection,
 how to allocate these free chunks is the key to our wear-leveling policy.
-If a chunk is allocated from the free pointer, Wamalloc just returns the pointer and then increases this pointer by the size of memory chunk, 
-otherwise a chunk is allocated from the free list, a wear-leveling policy must be applied.
+If a chunk is allocated from the free pointer, 
+Wamalloc just returns the pointer and then increases the free pointer by the size of memory chunk, 
+Otherwise if a chunk is allocated from the free list, a wear-leveling policy must be applied.
 
 \subsubsection{Method of enlarging global heap memory}
 Global heap is enlarged via system call(e.g., mmap) if there is no available memory chunks.
@@ -746,7 +754,7 @@ One solution aims at economic usage of process address space, for example, incre
 while the other solution aims at reducing the lock contention if possible, for example, increasing the space exponentially. 
 In wamaloc, we use the latter solution for two reasons: 
 \begin{enumerate}
-    \item With the popularization of 64-bit machines, the size of virtual memory far exceeds the real physical memory an application needs.
+    \item With the popularization of 64-bit machines, size of the virtual memory far exceeds the real physical memory an application needs.
 Hence, it is unimportant that an application may take too many virtual memory. 
 In return we can decrease the potential lock contention by acquiring the lock as less as possible.
     \item Almost all of the modern CPUs support page table mechanism, 
@@ -758,8 +766,8 @@ In return we can decrease the potential lock contention by acquiring the lock as
 After a thread is terminated, there may be several remaining chunks in thread's local heap. 
 These memory chunks need to be handled properly.
 A typical method used in general-purpose memory allocator is to push these chunks into a global stack(FILO queue)
-for the reason that these chunks are probably just used by the terminated thread and they may be in CPU's L1/L2/L3 cache, 
-Reusing these chunks is a cache-friendly option.
+for the reason that these chunks are probably just used by the terminated threads and they may be in CPU's L1/L2/L3 cache, 
+reusing these chunks is a cache-friendly option.
 However, it is not a possible option for non-volatile memory because these operations will reduce the lifetime of NVM.
 If we continuously serve a thread with the hottest memory chunk, memory ceil would be damaged quickly.
 More details will be discussed in the next subsection.
@@ -775,7 +783,7 @@ Although the advantage of FIFO is simple and fast, it is not an accurate wear-aw
 LRU may be better than FIFO in wear-aware accuracy, but the complexity of maintaining a LRU queue is too high which may cause a performance drop.
 
 NVMalloc\cite{moraru2013consistent} proposes a method to tackle this problem.
-It timestamps every available free memory block to make sure every block is allocated at least in interval $T$(a predefined threshold).
+It timestamps every available free memory blocks to make sure every block is allocated at least in interval $T$(a predefined threshold).
 NVMalloc implements it using a don't-allocate list and on every allocation and deallocation,
 NVMalloc examines the block at the head of this list.
 If it has been in this list for at least time $T$,
@@ -783,7 +791,7 @@ it will be removed from the list and marked as available.
 Thus, strictly speaking, it is just a modified FIFO and its drawbacks still exist.
 Further more, making a memory block not available for the interval of $T$ period will consume more memory spaces,
 which is obvious since when there is no available block in the interval of $T$, 
-the allocator need to request more memory from operating system for new coming requests.
+the allocator needs to request more memory from operating system for new coming requests.
 
 In Wamalloc, explicit wear-leveling policy should be applied in three different places. 
 We propose a novel hybrid wear-leveling method to balance the tradeoff between wear-leveling accuracy and performance.
@@ -797,42 +805,44 @@ After a chunk runs out of its first-allocated blocks,
 Wamalloc will search the free list of the chunk to check whether any reusable block is available.
 When a thread frees a memory block, this block should be added to the free list of its belonging chunk.
 Thus, we should apply wear-leveling policy to this free list.
-In consideration of allocation latency, no elaborate mechanism is employed for the sake of performance.
-We consider free list as a FIFO queue.
+In consideration of allocation latency, a simple and fast method is more appropriate in this situation.
+Thus, we consider the free list as a FIFO queue,
+which has a $O(1)$ time complexity and a nearly optimal wear-leveling behavior.
 FIFO may not give an accurate allocation, but in return the allocation latency is small.
 
 \subsubsection{In local heap level}
 
-When the current in-use chunk is out of blocks, 
+When the current in-use chunk runs out of blocks, 
 a chunk should be chosen as a new in-use chunk based on the wear-leveling policy.
 %According to the state machine shown in the previous section,
 There are two sources that an available usable chunk can come from:
 one is from the waiting chunk list, the other is from the free list of clean chunk in local heap.
 
-Since Clean chunks do not belong to any size class, they are more flexible than the chunks in waiting chunk list.
+Since Clean chunks don't belong to any size class, 
+they are more flexible than the chunks in waiting chunk list.
 In other words, if we have some clean chunks in the free list, 
 we don't need to interfere with the global heap
-because these clean chunks could meet requests of any size class directly when in-use chunk is out of blocks.
+because these clean chunks could meet requests of any size class directly.
 Thus waiting chunk list will be checked first to find the chunk that could replace the current in-use chunk.
 
 Now we will discuss how to organize the waiting chunk list and the clean chunk list.
 The method used here should take two things into consideration:
 performance and wear-leveling.
-Due to the fine-grained wear-leveling policy that will be applied below,
+Due to the fine-grained wear-leveling policy that will be described below,
 here we put an emphasis on the performance and provide a coarse-grained wear-leveling policy.
-We think FIFO is our best choice, which has a $O(1)$ time complexity and a nearly optimal wear-leveling behavior.
+Again, We think FIFO is our best choice in this level.
 
 \subsubsection{In global heap level}
-It is a common case that global heap need to reap the memory chunks returned from local heap.
+It is a common case that global heap needs to reap the memory chunks returned from local heap.
 Hence there is also a free chunk list in global heap maintaining all usable chunks. 
 Just like the policy adopted in block level, 
 when a new thread requests a clean memory chunk from global heap,
-Wamalloc will first allocate memory chunk starting from the free pointer; 
-if no available chunk is found, Wamalloc will allocate chunk from free chunk list complied with the following wear-leveling policy.
+Wamalloc will first allocate the memory chunk starting from the free pointer; 
+if no available chunk is found, Wamalloc will allocate chunks from free chunk list complied with the following wear-leveling policy.
 
 % hybrid method, 异步四叉堆
 The best wear-leveling policy should return the least allocated objects so far. 
-To the best of our knowledge, the most suitable data structure is a priority queue using allocation times as its key,
+To the best of our knowledge, the most suitable data structure is a priority queue using allocation frequency as its key,
 and the time complexity of finding the minimum key is $O(1)$, which sounds perfect to our wear-leveling policy.
 However, since it is the best, it is strange that no wear-aware NVM allocators use it.
 We think the main reason is that its time complexity of the push operation is too high, 
@@ -846,7 +856,7 @@ In Wamalloc, we use two optimizations make the operations of priority queue not 
 We use our optimized priority queue as the wear-leveling policy used in free chunk list of global heap.
 % The tradeoff is that it may consume a slight more memory space, which is in an acceptable range 
 
-There are two cases when a thread needs to return memory chunk back to the global heap: 
+There are two cases when a thread needs to return memory chunks back to the global heap: 
 1) when a thread is terminated;
 2) as we have discussed above, the wear-leveling policy in block level is FIFO, which is not an accurate method.
 However, we can achieve a nearly optimal policy using following strategy: 
@@ -859,11 +869,12 @@ When all memory blocks in a not-available chunk are freed,
 this chunk will be moved to the global heap.
 Instead of directly inserting the chunk to the priority queue in the global heap, Wamalloc will do it asynchronously.
 Specificly, the chunk will be first inserted into a producer-consumer queue, which is a $O(1)$ operations;
-a background thread will periodically check the producer-consumer queue to get a returned chunk 
+a background thread periodically check the producer-consumer queue to get a returned chunk 
 and insert it to the priority queue of global heap.
 Since the producer-consumer queue is a global object shared by all threads, another lock is needed.
 A problem may be raised when lock contention happen.
-However, pushing a chunk into the producer-consumer queue is not in the critical path of allocation and will not happen very frequent,
+However, pushing a chunk into the producer-consumer queue is not in the critical path of allocation 
+and will not happen very frequently,
 which means the possible lock contention penalty will be amortized so that it won't be the bottleneck of Wamalloc.
 
 \subsection{Data Placement In DRAM And NVM}
@@ -873,25 +884,26 @@ In this subsection, we will discuss which category metadatas previously mentione
 and how to place them in a hybrid memory system.
 In Wamalloc, metadatas include chunk header, local heap and global heap.
 Chunk header belongs to data description category, 
-in which it manages the blocks information inside a chunk and some chunk-related data, 
+in which it manages the block informations inside a chunk and some chunk-related data, 
 such as the count of remaining free blocks, size class of the current chunk,
 chunk owner, chunk state, wear-leveling count of the chunk and so on.
 While local heap and global heap belong to space description,
-which are used to advise where the allocator can find the appropriate available chunks.
+which are used to advise the allocator where can find the appropriate available chunks.
 
 In traditional memory allocators, metadata and data are coupled with each other very tightly.
 When an allocation or a deallocation request comes, 
 there will be plenty of small metadata writes of changing pointer to chain its previous block and next block 
 in order to split large space or merge small continuous spaces into a large free space.
 This access pattern will probably decrease the lifetime of NVM because of the frequent writes to metadatas.
-However, it is not what we expect in NVM allocator.
+It is not what we expect in NVM allocator.
 
 In Wamalloc, we keep all metadatas in DRAM except for chunk header. 
 Putting Chunk header in NVM is because of the simplicity of finding the appropriate chunk header.
-when a thread frees a memory block back to allocator, 
+When a thread frees a memory block back to allocator, 
 a memory pointer \textbf{ptr} is passed as argument to Wamalloc and 
 its chunk header is easily computed by \textbf{ptr}(e.g., a simple subtraction),
-otherwise another mechanism should be introduced to remember the relationship between a memory address and its chunk header,
+otherwise another mechanism should be introduced to 
+remember the relationship between a memory address and its chunk header,
 which will certainly cause an extra time cost.
 At the meantime, Wamalloc keeps the writing frequency of chunk header as low as possible. 
 %Figure~\ref{fig:globalview} show the global view of Wamalloc.
@@ -942,7 +954,7 @@ Based on the discussion above, we summarize the allocation algorithm in the foll
 \end{algorithmic}
 \end{algorithm}
 
-Wamalloc will first compute the size class according to the parameter size, 
+Wamalloc will first compute the size class according to the parameter \textbf{size}, 
 then use this value to find the appropriate in-use chunk.
 If it is a small size request, allocation will happen directly in the current in-use chunk.
 Three exceptions could occur during an allocation:
@@ -982,13 +994,14 @@ Otherwise it is a small memory deallocation, Wamalloc will perform different act
 Specificly, there are four cases: if the current chunk is 
 (1) in in-use state, nothing will be done;
 (2) in full state, it will be added to the waiting list of its local heap;
-(3) in waiting state and the chunk becomes a clean chunk, it will be added to the free list of its local heap;
-(4) in not-available state and the chunk becomes a clean chunk, it will be returned to the free list of global heap.
+(3) in waiting state and the chunk becomes to a clean chunk, it will be added to the free list of its local heap;
+(4) in not-available state and the chunk becomes to a clean chunk, it will be returned to the free list of global heap.
 
 \section{Evaluation}
 
 In this section, we evaluate Wamalloc in several benchmarks and compare it against the glibc allocator and NVMalloc.
-We analyze wear-leveling as well as physical memory consumption and the performance of Wamalloc under uniform and random allocation workloads.
+We analyze wear-leveling as well as physical memory consumption and the performance of Wamalloc 
+under uniform and random allocation workloads.
 
 \subsection{Benchmark Setup}
 
@@ -1194,8 +1207,7 @@ which uses a thread-cache memory architecture causing nearly no lock contention 
 and an elaborate hybrid wear-leveling policy to improve lifetime of NVM.
 The evaluation results show that
 Wamalloc outperforms NVMalloc in terms of wear-leveling policy, total memory consumption and allocation performance.
-In our future work, we will continue to optimize the wear-leveling policy based on our byhrid method,
-or a log-structure way\cite{rumble2014log} to organize NVM memory.
+In our future work, we will continue to optimize the wear-leveling policy based on our byhrid method.
 Performance scalability is also subject to future work.
 
 % For peer review papers, you can put extra information on the cover
