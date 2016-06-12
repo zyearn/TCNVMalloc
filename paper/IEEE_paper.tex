@@ -1050,8 +1050,8 @@ the average allocation frequency per block of NVMalloc is about 2.
 While the value of that in Wamalloc is about 1.98, 
 indicating Wamalloc performs better than NVMalloc under the workloads of uniform allocation.
 In Figure~\ref{fig:eval_3},
-Wamalloc also performs better than NVMalloc under the workload of random allocation.
-This can be explained by using the 4-ary heap implementing an accurate and elaborate wear-leveling policy.
+Wamalloc also performs better than NVMalloc under the workload of random allocation,
+which can be explained by using the 4-ary heap implementing an accurate and elaborate wear-leveling policy.
 
 However, it is meaningless to compare the average allocation frequency without considering the physical memory consumption.
 A simple allocator that allocates every memory block just once and never use that memory again 
@@ -1100,7 +1100,7 @@ under the workload of uniform(128 bytes) and random(64 and 512 bytes) allocation
 Since Wamalloc uses a thread-cache structure and has a very short critical path using locks as few as possible,
 the average allocation latency should be little related to the number of threads.
 These expectations are confirmed by the result of our evaluations shown in Figure~\ref{fig:eval_5} and Figure~\ref{fig:eval_6}.
-From the result we can see that Wamalloc outperforms both glibc and NVMalloc in this evaluation.
+From the result we can verify that Wamalloc outperforms both glibc and NVMalloc under different workloads.
 
 
 \begin{figure}[t]
@@ -1119,10 +1119,12 @@ From the result we can see that Wamalloc outperforms both glibc and NVMalloc in 
 
 Next, a second benchmark was run in which the program is extended to free all the memory after allocations, 
 the runtime of which was included in the measurement of average allocation latency.
-Allocating and then freeing is a common scenario in most applications, thus it is more complicated than just allocating the memory in a multithread environment 
+Allocating and then freeing is a common scenario in most applications, 
+and  it is more complicated than just allocating the memory in a multithread environment 
 for the reason that freeing may cause changes of the state of some chunks or even some movements of chunk from local heap to global heap.
 The evaluation result is shown in Figure~\ref{fig:eval_7}.
-Malloc in Glibc performs better than itself when freeing is involved, but the performance still falls behind Wamalloc by a small constant gap.
+Malloc in Glibc performs better than itself when freeing is involved, 
+but the performance still falls behind Wamalloc by a small constant gap.
 
 
 \begin{figure}[t]
@@ -1147,7 +1149,7 @@ Wamalloc also performs better than NVMalloc and glibc malloc.
 \section{Related work}
 
 The emerging technology of NVM has gained more and more attentions in research community.
-Proposition were made for different levels of computer system, 
+Propositions were made for different levels of computer system, 
 such as using NVM as a fast buffer for flash-based storage\cite{greenan2007prims}, 
 or as a supplement for DRAM exploiting the benefit of the hybrid memory system.
 
@@ -1166,7 +1168,7 @@ writeback minimization with new cache replacement policies, and wrote only the b
 
 At software level, there are also much works proposed to minimize to the memory writes to NVM, 
 such as the research work by Hu, Jingtong et al.\cite{hu2013software}.
-Early in the time of research in NVM, mnemosyne\cite{volos2011mnemosyne} and NV-heaps\cite{coburn2011nv} provided complete suites to working with NVM, which involed kernel modifications, user mode liraries and so on.
+Early in the time of research in NVM, mnemosyne\cite{volos2011mnemosyne} and NV-heaps\cite{coburn2011nv} provided complete suites to work with NVM, which involed kernel modifications, user mode liraries and so on.
 However, the endurance problem is not considered too much.
 
 A more specific NVM allocator is NVMalloc by Moraru et al.\cite{moraru2013consistent},
@@ -1174,7 +1176,6 @@ intended to ba an efficient, general-purpose NVM allocator with a wear-leveling 
 More specificly, NVMalloc curbs the write frequency of memory block no higher than 1/T, which is a predefined threshold.
 Further more, NVMalloc decouples metadata and data to reduce metadata write.
 The focus of NVMalloc is mainly on wear-aware algorithms to increase the lifetime of NVM.
-The evaluation shows Wamalloc outperforms NVMalloc in terms of wear-leveling policy, total memory consumption and allocation performance.
 
 Another NVM allocator is nvm\_malloc proposed by Schwalb et al.\cite{schwalbnvm},
 presenting a general-purpose NVM allocation concept with fast builtin recovery feartures
@@ -1186,11 +1187,13 @@ A follow-up comparison to the mature version of nvm\_malloc is subject to future
 \section{Conclusion and future work}
 
 In this paper, we observe the fact that
-no NVM allocators at the time of writing can provide both an accurate wear-leveling policy and a good allocation performance simultaneously.
+no NVM allocators at the time of writing 
+can provide both an accurate wear-leveling policy and a good allocation performance simultaneously.
 Based on the observation, we propose an efficient wear-aware NVM allocator, Wamalloc,
 which uses a thread-cache memory architecture causing nearly no lock contention in critical path,
 and an elaborate hybrid wear-leveling policy to improve lifetime of NVM.
-The evaluation results show that...
+The evaluation results show that
+Wamalloc outperforms NVMalloc in terms of wear-leveling policy, total memory consumption and allocation performance.
 In our future work, we will continue to optimize the wear-leveling policy based on our byhrid method,
 or a log-structure way\cite{rumble2014log} to organize NVM memory.
 Performance scalability is also subject to future work.
