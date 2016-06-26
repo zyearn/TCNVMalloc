@@ -361,17 +361,17 @@
 % paper title
 % can use linebreaks \\ within to get better formatting as desired
 
-\title{Wamalloc: An thread-cache wear-aware allocator for Non-volatile Main Memory}
+\title{Wamalloc: An efficient wear-aware allocator for Non-volatile Main Memory}
 
 % author names and affiliations
 % use a multiple column layout for up to two different
 % affiliations
 
-\author{\IEEEauthorblockN{Jiashun Zhu, xxxx, xxxx }
+\author{\IEEEauthorblockN{Jiashun Zhu, Sumin Li, Linpeng Huang}
 \IEEEauthorblockA{
 Department of Computer Science and Engineering\\
 Shanghai Jiao Tong University\\
-Email: zhujiashun2010, xxxx, xxxxx@gmail.com}
+Email: zhujiashun2010@gmail.com, lisumin\_2013, lphuang@sjtu.edu.cn}
 }
 
 % conference papers do not typically use \thanks and this command
@@ -410,9 +410,9 @@ Email: zhujiashun2010, xxxx, xxxxx@gmail.com}
 
 
 \begin{abstract}
-Non-volatile memory(NVM) is a promising DRAM replacement in computer systems due to its attractive characteristics.
-However, low endurance problem has limited its practical applications.
-In this paper, we propose Wamalloc, an efficient software level NVM memory allocator to extend PCM's lifetime.
+Non-volatile memory(NVM) promises a DRAM replacement in computer systems due to its attractive characteristics.
+However, the low endurance problem limites its practical applications.
+In this paper, we propose Wamalloc, an efficient NVM memory allocator to extend PCM's lifetime on the software level.
 An elaborate hybrid wear-leveling policy is proposed in this paper to achieve wear-leveling without hardware overhead.
 The evaluations show that under uniform and random workloads,
 the wear-leveling policy of Wamalloc outperforms that of NVMalloc,
@@ -429,24 +429,24 @@ non-volatile memory; memory allocator; wear-leveling
 \section{Introduction}
 
 For decades, dynamic random-access memory(DRAM) has been used as the main memory of computer system.
-However, with the great demand of performance and energy-constrain applications, the defects of DRAM have become a main concern,
+However, with the great demands of performance and energy-constrain applications, the defects of DRAM have become a main concern,
 for example, the limited density\cite{mandelman2002challenges}
 and its high energy consumption\cite{lefurgy2003energy}. 
-In order to address these problems, an emerging new technology named non-volatile memory(NVM) has been proposed, 
-such as Phase-change memory(PCM)\cite{huang2009phase},
-spin transfer torque(STT-RAM)\cite{apalkov2013spin}, and memristors\cite{ho2009nonvolatile}. 
-NVM has the advantages of low latency, low power consumption and byte-addressable,
+Fortunately, an emerging new technology named non-volatile memory(NVM) provides the solution to address these problems,
+NVM, such as Phase-change memory(PCM)\cite{huang2009phase},
+spin transfer torque(STT-RAM)\cite{apalkov2013spin}, and memristors\cite{ho2009nonvolatile}, 
+has the advantages of high density, low power consumption and byte-addressable,
 which make it a better alternative to be the main memory when compared with DRAM.
 
-However, non-volatile memories suffer from limited write endurance. 
+However, NVM suffers from limited write endurance. 
 For example, a typical PCM cell permanently fails after nearly $10^7$ to $10^9$ writes. 
 In such a circumstance, a poorly designed memory allocator will break the PCM in a short time. 
 For purpose of tackling this problem and support a software level wear-aware memory allocator,
-a new memory allocator targeted for NVM platform must be designed and used in nowadays’ applications running in NVM.
+a new memory allocator targeted for NVM platform must be designed for applications running on NVM.
 
-There are already some existing research works on memory allocators for NVM\cite{volos2011mnemosyne,coburn2011nv,moraru2013consistent}.
+There are already some researches on memory allocators for NVM\cite{volos2011mnemosyne,coburn2011nv,moraru2013consistent}.
 Unfortunately, none of these allocators can provide both an accurate wear-leveling policy
-and a good allocation performance simultaneously as shown in evaluation part.
+and a good allocation performance simultaneously.
 The reason is that they mainly focused on the whole toolboxes of NVM or the wear-leveling policy is not accurate enough.
 As a result, a new NVM allocator that is more accurate in wear-leveling and has a better performance is urgently expected.
 
@@ -470,8 +470,8 @@ Our contributions can be summarized as follows:
     \item We implement Wamalloc as an userspace library, which depends on no special requirements on operating system and hardware modifications.
 \end{enumerate}
 
-We have implemented a prototype version of Wamalloc and 
-evaluated its performance and some critical aspects against several memory allocators.
+We implement a prototype of Wamalloc and 
+evaluate its performance and some critical aspects against several memory allocators.
 Experiment shows that under both uniform and random workloads, 
 Wamalloc outperforms the prior allocators in aspect of average block allocation frequency, total memory consumption and allocation latency.
 
@@ -479,7 +479,7 @@ Wamalloc outperforms the prior allocators in aspect of average block allocation 
 
 \section{Background and Assumptions}
 
-In this section, we will briefly introduce the non-volatile memory and
+In this section, we briefly introduce the non-volatile memory and
 make some assumptions about operating system support for these memories.
 
 \subsection{Non-Volatile Memory}
@@ -490,7 +490,7 @@ Three typical technologies are phase change memory, memristor and spin transfer 
 
 In order to get a more perceptual view, we will take PCM as an illustration. 
 PCM is a non-volatile memory that exploits the unique behavior of chalcogenide glass.
-It stores bits by heating a nanoscale piece of chalcogenide glass and makes it to change state by injecting current through memory cell.
+It stores bits by heating a nanoscale piece of chalcogenide glass and makes it change state by injecting current through memory cell.
 Specificly, there are two states.
 One is called a crystalline state representing state (1), and the other is called an amorphous state representing state (0).
 
@@ -519,7 +519,7 @@ instead of the performance of different kinds of NVM.
 
 \subsection{NVM in memory system}
 
-Due to the limitations(limited endurance and slow writes) of NVM,
+Due to the limitations(limited endurance and slow writes),
 NVM is not likely to replace DRAM as the only main memory in computer system.
 We assume that at least for write-intensive applications,
 computer systems will use a combination of DRAM and NVM, taking their respective advantages.
@@ -564,7 +564,7 @@ ln the later subsections we will see a hybrid method to tackle this problem.
 
 Another requirement of Wamalloc is low allocation latency,
 otherwise allocator would probably become the bottleneck of the entire application,
-which results in allocator to be useless. 
+which results in the allocator to be useless. 
 To reduce the latency, every thread should have its own local heap to reduce the possible lock contention,
 and all memory owned by threads should be managed by a global heap.
 However, managing a global heap makes the usage of lock inevitable.
@@ -577,7 +577,7 @@ Wamalloc maintains a local heap for each thread, and a global heap for all threa
 The reason why we use such a design is from the obvious observation that if a request from a thread can be satisfied by its local heap,
 the allocation latency will be very low since there is no lock contention.
 However, a global heap that manage all the memory will inevitably introduce a lock.
-One of our implementation focus is emphasized on how to reduce the usage of lock to the best of our ability.
+One of our implementation focus is on how to reduce the usage of lock.
 
 \begin{figure}
 \centering
@@ -586,7 +586,7 @@ One of our implementation focus is emphasized on how to reduce the usage of lock
 \label{fig:arch}
 \end{figure}
 
-Each local heap contains several fix-sized memory chunks.
+Each local heap contains several fixed-size memory chunks.
 Each memory chunk is further divided into several memory blocks based on its size class.
 Each thread maintains several chunks, and Wamalloc treats memory blocks as basic allocation unit.
 How the memory blocks are allocated and how the chunks are moved between local heap and global heap
@@ -629,14 +629,14 @@ How to organize the free list will be discussed in the following wear-leveling p
 \subsubsection{How to choose chunk size}
 The size of memory chunk is very critical to the performance of Wamalloc. 
 If the chunk size is too small, 
-the memory blocks will be used up very soon
+the memory blocks will be used up very soon.
 Frequently communicating with the global heap will greatly decrease the performance.
 If the chunk size is too large, lots of memory blocks may remain clean or unused, which leads to a huge memory waste. 
 A working method used by many other allocators is to choose chunks of small size to serve small blocks, 
 and chunks of large size to serve large blocks,
 then there will always be available usable memory blocks no matter what size class a chunk belongs to.
 The drawbacks are also obvious:
-since the memory chunk size is different, it increases the complexity of global heap to manage these chunks.
+since the memory chunk size is different, it increases the complexity of global heap management.
 Consequently this will cause the extra time penalty and the possible memory fragment, 
 which may result in more physical memory consumption than an application really needs.
 
@@ -692,8 +692,9 @@ Every time a block is allocated from a chunk, its wear-count variable increases 
 If the wear-count variable of a chunk reaches the predefined allocation threshold, 
 it is no longer available for allocation in this thread, and its state becomes not-available. 
 When all the blocks in a not-available chunk are freed,
-the chunk is returned back to global heap for further elaborate wear-leveling policy, 
-which will be discussed in the following subsection.
+the chunk is returned back to global heap.
+%for further elaborate wear-leveling policy, 
+%which will be discussed in the following subsection.
 
 \textbf{Clean chunk}.
 After all the blocks in a waiting chunk are freed, 
@@ -793,7 +794,7 @@ Further more, making a memory block not available for the interval of $T$ period
 which is obvious since when there is no available block in the interval of $T$, 
 the allocator needs to request more memory from operating system for new coming requests.
 
-In Wamalloc, explicit wear-leveling policy should be applied in three different places. 
+In Wamalloc, explicit wear-leveling policies are applied in three different places. 
 We propose a novel hybrid wear-leveling method to balance the tradeoff between wear-leveling accuracy and performance.
 
 % wear policy
@@ -895,7 +896,7 @@ When an allocation or a deallocation request comes,
 there will be plenty of small metadata writes of changing pointer to chain its previous block and next block 
 in order to split large space or merge small continuous spaces into a large free space.
 This access pattern will probably decrease the lifetime of NVM because of the frequent writes to metadata.
-It is not what we expect in NVM allocator.
+It is not what we expect in a NVM allocator.
 
 In Wamalloc, we keep all metadata in DRAM except for chunk header. 
 Putting Chunk header in NVM is because of the simplicity of finding the appropriate chunk header.
@@ -1029,8 +1030,8 @@ thus we will treat NVMalloc as our main contender.
 First, we evaluate the wear-leveling ability of our allocator
 using a simple test program under uniform and random allocation and deallocation operations(50\% each).
 In NVMalloc, for every allocation, the program writes the allocated block once, then use Pin\cite{luk2005pin} to record store to memory and compared the total writes of each block.
-In this method, the total writes depend on not only the allocator itself but also the behavior of test program,
-which we think may not be necessary and even worse, not be accurate in evaluating the wear-leveling ability of memory allocator.
+In this method, the total writes depend on not only the allocator itself but also the behavior of test program.
+%which we think may not be necessary and even worse, not be accurate in evaluating the wear-leveling ability of memory allocator.
 Instead, it is more accurate to evaluate the allocation frequency of each memory block 
 returned by allocator to illustrate the ability of wear-leveling.
 
@@ -1052,7 +1053,7 @@ More specificly, we run tests to get all of allocation memory addresses,
 then store these addresses into a set \textbf{V},
 a collection of distinct memory addresses.
 For example, if one specific memory address is allocated twice by allocator, the address appears only once in set \textbf{V}.
-Then we use (total allocation times)/(sizeof \textbf{V}) as average allocation frequency per block to metric the wear-leveling ability.
+Then we use (total allocation times)/(sizeof \textbf{V}) as average allocation frequency per block to evaluate the wear-leveling ability.
 
 Figure~\ref{fig:eval_1} and Figure~\ref{fig:eval_3} show the result of wear-leveling 
 in terms of average allocation frequency per block
@@ -1062,7 +1063,7 @@ it is expected that Wamalloc performs better than NVMalloc.
 
 As the evaluations show, in Figure~\ref{fig:eval_1}, as the times of allocation increases,
 the average allocation frequency per block of NVMalloc is about 2.
-While the value of that in Wamalloc is about 1.98, 
+While the value of that in Wamalloc ranges from 1.95 to 1.98, 
 indicating Wamalloc performs better than NVMalloc under the workloads of uniform allocation.
 In Figure~\ref{fig:eval_3},
 Wamalloc also performs better than NVMalloc under the workload of random allocation,
@@ -1103,7 +1104,7 @@ but also in physical memory consumption.
 
 \subsection{allocation performance}
 
-Now, We are going to compare the allocation performance of Wamalloc against different allocators,
+We compare the allocation performance of Wamalloc against different allocators,
 which is a crucial metric since it will affect the overall performance of a program.
 Specificly, we compare the average allocation latency under workloads of different parallel threads against NVMalloc.
 We also add the gblic malloc(version 2.21) into comparison to provide a performance baseline.
@@ -1208,7 +1209,7 @@ can provide both an accurate wear-leveling policy and a good allocation performa
 Based on the observation, we propose an efficient wear-aware NVM allocator, Wamalloc,
 which uses a thread-cache memory architecture causing nearly no lock contention in critical path,
 and an elaborate hybrid wear-leveling policy to improve lifetime of NVM.
-The evaluation results show that
+The experimental results show that
 Wamalloc outperforms NVMalloc in terms of wear-leveling policy, total memory consumption and allocation performance.
 %Wamalloc also outperforms Glibc Malloc in terms of allocation performance.
 In our future work, we will continue to optimize the wear-leveling policy based on our hybrid method.
