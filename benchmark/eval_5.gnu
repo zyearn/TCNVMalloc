@@ -1,6 +1,6 @@
 set title ""
 set xlabel 'Number of threads'
-set ylabel 'Average time in us'
+set ylabel 'Average time(us)'
 set yrange [-0.5:3]
 set key box
 set terminal png size 800,500

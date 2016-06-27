@@ -1,6 +1,6 @@
 set title ""
 set xlabel 'Number of thread'
-set ylabel 'Average time in us'
+set ylabel 'Average time(us)'
 # set yrange [-0.5:3]
 set key box
 set key top left
