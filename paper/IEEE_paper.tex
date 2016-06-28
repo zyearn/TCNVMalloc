@@ -412,12 +412,14 @@ Email: zhujiashun2010@gmail.com, lisumin\_2013, lphuang@sjtu.edu.cn}
 \begin{abstract}
 Non-volatile memory(NVM) promises a DRAM replacement in computer systems due to its attractive characteristics.
 However, the low endurance problem limites its practical applications.
-In this paper, we propose Wamalloc, an efficient NVM memory allocator to extend PCM's lifetime on the software level.
+In this paper, we propose Wamalloc, an efficient NVM memory allocator to extend PCM's lifetime in the software level.
 An elaborate hybrid wear-leveling policy is proposed in this paper to achieve wear-leveling without hardware overhead.
-The evaluations show that under uniform and random workloads,
-the wear-leveling policy of Wamalloc outperforms that of NVMalloc,
-and the total memory consumption of Wammaloc is less than NVMalloc by a huge constant value.
-In addition, the allocation performance is far better than the standard glibc malloc and NVMalloc.
+The evaluations show that
+the wear-leveling policy of Wamalloc outperforms that of NVMalloc from 3\% to 30\%,
+and the total memory consumption of Wamaloc outperforms that of NVMalloc about 60\% and 10\% under uniform and random workloads.
+In addition, the allocation performance of Wamalloc is better than the standard glibc malloc and NVMalloc 
+by 98\% and 97\% under uniform workloads,
+83\% and 86\% under random workloads.
 
 \end{abstract}
 
@@ -1062,11 +1064,11 @@ Since Wamalloc use a more elaborate and accurate wear-leveling policy than NVMal
 it is expected that Wamalloc performs better than NVMalloc.
 
 As the evaluations show, in Figure~\ref{fig:eval_1}, as the times of allocation increases,
-the average allocation frequency per block of NVMalloc is about 2.
-While the value of that in Wamalloc ranges from 1.95 to 1.98, 
-indicating Wamalloc performs better than NVMalloc under the workloads of uniform allocation.
+Wamalloc performs better than NVMalloc under the workloads of uniform allocation.
 In Figure~\ref{fig:eval_3},
-Wamalloc also performs better than NVMalloc under the workload of random allocation,
+the average allocation frequency per block of NVMalloc is about 2.
+While the value of that in Wamalloc ranges from 1.4 to 1.9, 
+indicating that Wamalloc performs better than NVMalloc under the workload of random allocation,
 which can be explained by using the 4-ary heap implementing an accurate and elaborate wear-leveling policy.
 
 However, it is meaningless to compare the average allocation frequency without considering the physical memory consumption.
