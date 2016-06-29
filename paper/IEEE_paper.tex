@@ -361,7 +361,7 @@
 % paper title
 % can use linebreaks \\ within to get better formatting as desired
 
-\title{Wamalloc: An efficient wear-aware allocator for Non-volatile Main Memory}
+\title{Wamalloc: An Efficient Wear-Aware Allocator for Non-Volatile Main Memory}
 
 % author names and affiliations
 % use a multiple column layout for up to two different
@@ -371,7 +371,7 @@
 \IEEEauthorblockA{
 Department of Computer Science and Engineering\\
 Shanghai Jiao Tong University\\
-Email: zhujiashun2010@gmail.com, lisumin\_2013, lphuang@sjtu.edu.cn}
+Email: zhu1412043, lisumin\_2013, lphuang@sjtu.edu.cn}
 }
 
 % conference papers do not typically use \thanks and this command
@@ -412,7 +412,7 @@ Email: zhujiashun2010@gmail.com, lisumin\_2013, lphuang@sjtu.edu.cn}
 \begin{abstract}
 Non-volatile memory(NVM) promises a DRAM replacement in computer systems due to its attractive characteristics.
 However, the low endurance problem limites its practical applications.
-In this paper, we propose Wamalloc, an efficient NVM memory allocator to extend PCM's lifetime in the software level.
+In this paper, we propose Wamalloc, an efficient NVM memory allocator to extend the lifetime of NVM in the software level.
 An elaborate hybrid wear-leveling policy is proposed in this paper to achieve wear-leveling without hardware overhead.
 The evaluations show that
 the wear-leveling policy of Wamalloc outperforms that of NVMalloc from 3\% to 30\%,
@@ -424,7 +424,7 @@ by 98\% and 97\% under uniform workloads,
 \end{abstract}
 
 \begin{IEEEkeywords}
-non-volatile memory; memory allocator; wear-leveling
+non-volatile memory; memory allocator; wear-leveling; efficiency
 
 \end{IEEEkeywords}
 
@@ -504,6 +504,7 @@ Table~\ref{tab:NVMvsDRAM} presents the different characteristics of different NV
 
 \begin{table}[h]
     \centering
+    \caption{ {\upshape Characteristic of NVM and DRAM}}
     \begin{tabular}{|c|c|c|c|} \hline
         & Read & Write & Endurance\\ \hline
         DRAM & 60ns & 60ns & nearly unlimited\\ \hline
@@ -511,7 +512,6 @@ Table~\ref{tab:NVMvsDRAM} presents the different characteristics of different NV
         Memristor & 100ns & 100ns & $10^8$\\ \hline
         STT-RAM & 6ns & 13ns & $10^{15}$\\ \hline
     \end{tabular}
-    \caption{characteristic of NVM and DRAM}
 \label{tab:NVMvsDRAM}
 \end{table}
 
@@ -533,7 +533,7 @@ Wamalloc is proposed to be in the layer of NVM library, aiming at providing an e
 \begin{figure}[h]
 \centering
 \includegraphics[width=1.5in]{NVMposition.png}
-\caption{logical view of memory system}
+\caption{Logical view of memory system}
 \label{fig:NVMposition}
 \end{figure}
 
@@ -584,7 +584,7 @@ One of our implementation focus is on how to reduce the usage of lock.
 \begin{figure}
 \centering
 \includegraphics[width=3in]{arch.png}
-\caption{overall architecture}
+\caption{Overall architecture}
 \label{fig:arch}
 \end{figure}
 
@@ -623,7 +623,7 @@ How to organize the free list will be discussed in the following wear-leveling p
 \begin{figure}[h]
 \centering
 \includegraphics[width=3.2in]{chunk.png}
-\caption{chunk structure}
+\caption{Chunk structure}
 \label{fig:chunk}
 \end{figure}
 
@@ -721,7 +721,7 @@ The logical view of local heap and its relationship with memory chunks is shown 
 \begin{figure}[h]
 \centering
 \includegraphics[width=3.2in]{heap.png}
-\caption{heap structure}
+\caption{Heap structure}
 \label{fig:heap}
 \end{figure}
 
@@ -734,7 +734,7 @@ The logic view of global heap is shown in Figure~\ref{fig:global}.
 \begin{figure}[h]
 \centering
 \includegraphics[width=3.2in]{global.png}
-\caption{Global heap }
+\caption{Global heap}
 \label{fig:global}
 \end{figure}
 
@@ -1021,7 +1021,7 @@ which is compared to provide a performance baseline.
 The only three non-volatile allocator implementations publicly available at the time of writing are 
 NVMalloc, nvm\_malloc\cite{schwalbnvm} and pmemalloc.
 Nvm\_malloc provided a recovery mechanism and used the Persistent Memory Emulation Platform(PMEP)\cite{dulloor2014system} to emulate the performance of emerging NVM technologies.
-Since Wamalloc uses DRAM as a proxy and do not support recovery, we exclude nvm\_malloc for fairness reasons.
+Since Wamalloc uses DRAM as a proxy and recovery is not supported, we exclude nvm\_malloc for fairness reasons.
 Pmemalloc uses a simple first-fit algorithm and thus performs very poorly at runtime costs with the increase of allocations.
 NVMalloc focuses largely on designing a wear-aware allocation algorithm to increase the lifetime of NVM.
 Our assumption, evaluation setup and the targeted problem are closest to these in NVMalloc, 
@@ -1035,19 +1035,19 @@ In NVMalloc, for every allocation, the program writes the allocated block once, 
 In this method, the total writes depend on not only the allocator itself but also the behavior of test program.
 %which we think may not be necessary and even worse, not be accurate in evaluating the wear-leveling ability of memory allocator.
 Instead, it is more accurate to evaluate the allocation frequency of each memory block 
-returned by allocator to illustrate the ability of wear-leveling.
+returned by the allocator to illustrate the ability of wear-leveling.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=3.2in]{eval_1.png}
-\caption{uniform allocations(128byte)}
+\caption{Uniform allocations(128byte)}
 \label{fig:eval_1}
 \end{figure}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=3.2in]{eval_3.png}
-\caption{random allocations between 64 and 512 bytes}
+\caption{Random allocations between 64 and 512 bytes}
 \label{fig:eval_3}
 \end{figure}
 
@@ -1089,14 +1089,14 @@ However, Wamalloc still consumes less physical memory than NVMalloc by a constan
 \begin{figure}[t]
 \centering
 \includegraphics[width=3.2in]{eval_2.png}
-\caption{physical memory consumption under uniform allocations(128byte)}
+\caption{Physical memory consumption under uniform allocations(128byte)}
 \label{fig:eval_2}
 \end{figure}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=3.2in]{eval_4.png}
-\caption{physical memory consumption under random allocations}
+\caption{Physical memory consumption under random allocations}
 \label{fig:eval_4}
 \end{figure}
 
@@ -1124,14 +1124,14 @@ From the result we can verify that Wamalloc outperforms both glibc and NVMalloc 
 \begin{figure}[t]
 \centering
 \includegraphics[width=3.2in]{eval_5.png}
-\caption{average allocation latency under uniform allocations(128byte)}
+\caption{Average allocation latency under uniform allocations(128byte)}
 \label{fig:eval_5}
 \end{figure}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=3.2in]{eval_6.png}
-\caption{average allocation latency under random allocations}
+\caption{Average allocation latency under random allocations}
 \label{fig:eval_6}
 \end{figure}
 
@@ -1147,7 +1147,7 @@ but the performance still falls behind Wamalloc by a small constant gap.
 \begin{figure}[t]
 \centering
 \includegraphics[width=3.2in]{eval_7.png}
-\caption{performance comparison when freeing memory after allocations under random allocations}
+\caption{Performance comparison when freeing memory after allocations under random allocations}
 \label{fig:eval_7}
 \end{figure}
 
