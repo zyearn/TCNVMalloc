@@ -361,7 +361,7 @@
 % paper title
 % can use linebreaks \\ within to get better formatting as desired
 
-\title{Wamalloc: An Efficient Wear-Aware Allocator for Non-Volatile Main Memory}
+\title{Wamalloc: An Efficient Wear-Aware Allocator for Non-Volatile Memory}
 
 % author names and affiliations
 % use a multiple column layout for up to two different
@@ -411,7 +411,7 @@ Email: zhu1412043, lisumin\_2013, lphuang@sjtu.edu.cn}
 
 \begin{abstract}
 Non-volatile memory(NVM) promises a DRAM replacement in computer systems due to its attractive characteristics.
-However, the low endurance problem limites its practical applications.
+However, the low endurance problem limits its practical applications.
 In this paper, we propose Wamalloc, an efficient NVM memory allocator to extend the lifetime of NVM in the software level.
 An elaborate hybrid wear-leveling policy is proposed in this paper to achieve wear-leveling without hardware overhead.
 The evaluations show that
@@ -424,7 +424,7 @@ by 98\% and 97\% under uniform workloads,
 \end{abstract}
 
 \begin{IEEEkeywords}
-non-volatile memory; memory allocator; wear-leveling; efficiency
+non-volatile memory; memory allocator; wear-leveling
 
 \end{IEEEkeywords}
 
@@ -562,7 +562,7 @@ The most important design goal of Wamalloc is wear-leveling.
 Without hardware level wear-leveling, every time applications request memory,
 a memory block with the least allocation frequency is expected to be allocated.
 However, a strict policy that allocates the exact block may introduce extra time penalty.
-ln the later subsections we will see a hybrid method to tackle this problem.
+In the later subsections we will see a hybrid method to tackle this problem.
 
 Another requirement of Wamalloc is low allocation latency,
 otherwise allocator would probably become the bottleneck of the entire application,
@@ -864,7 +864,7 @@ There are two cases when a thread needs to return memory chunks back to the glob
 2) as we have discussed above, the wear-leveling policy in block level is FIFO, which is not an accurate method.
 However, we can achieve a nearly optimal policy using following strategy: 
 we define a threshold value \textbf{WEAR\_LIMIT} and an allocation time variable \textbf{AllocTimes} per chunk. 
-Everytime a block is allocated from a chunk, its per chunk variable \textbf{AllocTimes} increases by one.
+Every time a block is allocated from a chunk, its per chunk variable \textbf{AllocTimes} increases by one.
 If \textbf{AllocTimes} exceeds the predefined threshold \textbf{WEAR\_LIMIT}, 
 the chunk is no longer available for serving new coming request, 
 and state of the chunk becomes to not-available.
@@ -1187,11 +1187,11 @@ At software level, there are also much works proposed to minimize to the memory 
 such as the research work by Hu, Jingtong et al.\cite{hu2013software}.
 Early in the time of research in NVM, 
 mnemosyne\cite{volos2011mnemosyne} and NV-heaps\cite{coburn2011nv} provided complete suites to work with NVM, 
-which involved kernel modifications, user mode liraries and so on.
+which involved kernel modifications, user mode libraries and so on.
 However, the endurance problem is not considered too much.
 
 A more specific NVM allocator is NVMalloc by Moraru et al.\cite{moraru2013consistent},
-intended to ba an efficient, general-purpose NVM allocator with a wear-leveling policy using timestamp.
+intended to be an efficient, general-purpose NVM allocator with a wear-leveling policy using timestamp.
 More specificly, NVMalloc curbed the write frequency of memory block no higher than 1/T, which is a predefined threshold.
 Further more, NVMalloc decoupled metadata and data to reduce metadata write.
 The focus of NVMalloc is mainly on wear-aware algorithms to increase the lifetime of NVM.
