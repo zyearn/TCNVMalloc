@@ -416,7 +416,7 @@ In this paper, we propose Wamalloc, an efficient NVM memory allocator to extend 
 An elaborate hybrid wear-leveling policy is proposed in this paper to achieve wear-leveling without hardware overhead.
 The evaluations show that
 the wear-leveling policy of Wamalloc outperforms that of NVMalloc from 3\% to 30\%,
-and the total memory consumption of Wamaloc outperforms that of NVMalloc about 60\% and 10\% under uniform and random workloads.
+and the total memory consumption of Wamalloc outperforms that of NVMalloc about 60\% and 10\% under uniform and random workloads.
 In addition, the allocation performance of Wamalloc is better than the standard glibc malloc and NVMalloc 
 by 98\% and 97\% under uniform workloads,
 83\% and 86\% under random workloads.
@@ -434,7 +434,7 @@ For decades, dynamic random-access memory(DRAM) has been used as the main memory
 However, with the great demands of performance and energy-constrain applications, the defects of DRAM have become a main concern,
 for example, the limited density\cite{mandelman2002challenges}
 and its high energy consumption\cite{lefurgy2003energy}. 
-Fortunately, an emerging new technology named non-volatile memory(NVM) provides the solution to address these problems,
+Fortunately, an emerging new technology named non-volatile memory(NVM) provides the solution to address these problems.
 NVM, such as Phase-change memory(PCM)\cite{huang2009phase},
 spin transfer torque(STT-RAM)\cite{apalkov2013spin}, and memristors\cite{ho2009nonvolatile}, 
 has the advantages of high density, low power consumption and byte-addressable,
@@ -444,7 +444,7 @@ However, NVM suffers from limited write endurance.
 For example, a typical PCM cell permanently fails after nearly $10^7$ to $10^9$ writes. 
 In such a circumstance, a poorly designed memory allocator will break the PCM in a short time. 
 For purpose of tackling this problem and support a software level wear-aware memory allocator,
-a new memory allocator targeted for NVM platform must be designed for applications running on NVM.
+a new memory allocator must be designed for applications running on NVM.
 
 There are already some researches on memory allocators for NVM\cite{volos2011mnemosyne,coburn2011nv,moraru2013consistent}.
 Unfortunately, none of these allocators can provide both an accurate wear-leveling policy
@@ -455,9 +455,9 @@ As a result, a new NVM allocator that is more accurate in wear-leveling and has 
 %no NVM allocators at the time of writing can 
 In this paper, we propose Wamalloc, 
 a wear-aware allocator that provide wear-leveling without degrading the performance of allocator 
-when compared with the state-of-the-art allocator. 
+when compared with the state-of-the-art allocators.
 Specificly, this paper introduces three main techniques of NVM allocator.
-First, we propose a novel hybrid(fine-grained and coarse-grained) wear-leveling policy that are proven to be more accurate;
+First, we propose a novel hybrid(fine-grained and coarse-grained) wear-leveling policy proven to be more accurate;
 Besides, we use a thread-cache structure and lock optimizations that result in a better performance 
 compared with other NVM and DRAM allocators.
 At last, Wamalloc decouples metadata and data management,
@@ -497,7 +497,7 @@ Specificly, there are two states.
 One is called a crystalline state representing state (1), and the other is called an amorphous state representing state (0).
 
 Besides PCM, the other two alternative technologies(memristor and spin transfer torque) are also completing to be candidates for DRAM.
-Although These technologies have good characteristics to be the main memory,
+Although these technologies have good characteristics to be the main memory,
 they suffer from different kinds of weakness, such as endurance and asymmetry of read and write latency. 
 For example, memristor may wear-out after $10^8$ writes, while DRAM has an unlimited endurance.
 Table~\ref{tab:NVMvsDRAM} presents the different characteristics of different NVM and DRAM.
@@ -524,7 +524,7 @@ instead of the performance of different kinds of NVM.
 Due to the limitations(limited endurance and slow writes),
 NVM is not likely to replace DRAM as the only main memory in computer system.
 We assume that at least for write-intensive applications,
-computer systems will use a combination of DRAM and NVM, taking their respective advantages.
+a combination of DRAM and NVM should be used in computer systems, taking their respective advantages.
 The logical view of the hybrid memory system is shown in Figure~\ref{fig:NVMposition}.
 The NVM library layer provides the ability for applications to manipulate NVM memory pages.
 
@@ -701,7 +701,7 @@ the chunk is returned back to global heap.
 \textbf{Clean chunk}.
 After all the blocks in a waiting chunk are freed, 
 the waiting chunk can be used as a clean chunk without a specific size class.
-Hence it should be added to the free chunk pool, becoming a candidate for in-use chunk of any size class
+Hence it should be added to the free chunk pool, becoming a candidate for in-use chunk of any size class.
 How to allocate chunks from the free chunk pool must be carefully designed to achieve a wear-leveling purpose.
 %In summary, Figure~\ref{fig:state} shows the states of chunk and their transitions.
 
@@ -714,7 +714,7 @@ How to allocate chunks from the free chunk pool must be carefully designed to ac
 
 In local heap,
 each thread maintains an array of in-use memory chunks, 
-an array of waiting chunks list, indexed by size class respectively, 
+an array of waiting chunks list indexed by size class respectively, 
 and a free list to hold clean chunks.
 The logical view of local heap and its relationship with memory chunks is shown in Figure~\ref{fig:heap}.
 
@@ -752,10 +752,10 @@ Otherwise if a chunk is allocated from the free list, a wear-leveling policy mus
 Global heap is enlarged via system call(e.g., mmap) if there is no available memory chunks.
 Since global heap is shared by all threads, 
 a lock is certainly required, indicating a performance descend when lock contention happens.
-Thus there exists two different opinions on how to increase the memory space. 
+Thus there exists two different on how to increase the memory space. 
 One solution aims at economic usage of process address space, for example, increasing the space linearly;
 while the other solution aims at reducing the lock contention if possible, for example, increasing the space exponentially. 
-In wamaloc, we use the latter solution for two reasons: 
+In wamalloc, we use the latter solution for two reasons: 
 \begin{enumerate}
     \item With the popularization of 64-bit machines, size of the virtual memory far exceeds the real physical memory an application needs.
 Hence, it is unimportant that an application may take too many virtual memory. 
@@ -844,7 +844,7 @@ Wamalloc will first allocate the memory chunk starting from the free pointer;
 if no available chunk is found, Wamalloc will allocate chunks from free chunk list complied with the following wear-leveling policy.
 
 % hybrid method, 异步四叉堆
-The best wear-leveling policy should return the least allocated objects so far. 
+The best wear-leveling policy should return the least allocated chunks so far. 
 To the best of our knowledge, the most suitable data structure is a priority queue using allocation frequency as its key,
 and the time complexity of finding the minimum key is $O(1)$, which sounds perfect to our wear-leveling policy.
 However, since it is the best, it is strange that no wear-aware NVM allocators use it.
@@ -1173,7 +1173,7 @@ or as a supplement for DRAM exploiting the benefit of the hybrid memory system.
 In the research area of how to extend the endurance of NVM,
 plenty of works have been done at different levels.
 
-At hardware level, ping zhou et al.\cite{zhou2009durable} proposed a suite of hierarchical techniques to
+At hardware level, Ping zhou et al.\cite{zhou2009durable} proposed a suite of hierarchical techniques to
 prolong the lifetime of PCM-based main memory: 
 redundant bit-write removal, row shifting, and segment swapping.
 Lei Jiang et al.\cite{jiang2012improving} proposed write truncation (WT) and form switch (FS),
@@ -1230,7 +1230,11 @@ Performance scalability is also subject to future work.
 
 
 % use section* for acknowledgement
-%\section*{Acknowledgment}
+\section*{Acknowledgment}
+
+We thank anonymous reviewers for their insightful and helpful comments.
+We also thank Yanyan Shen for her constructive suggestions and comments on this paper.
+This work is supported by the National High Technology Research and Development Program of China(No.2015AA015303) and the National Natural Science Foundation of China(No.61472241).
 
 %The authors would like to thank...
 
