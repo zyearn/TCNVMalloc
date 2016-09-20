@@ -607,7 +607,7 @@ which are directly handled by local heap without acquiring the lock in the globa
 Small allocations are classified into several predefined class,
 just like TCMalloc\cite{ghemawat2009tcmalloc} and SSMalloc\cite{liu2012ssmalloc} does. 
 A memory request is served by a memory chunk with the nearest size class. 
-Wamalloc uses two sets of size class: fine-grained(16B, 24B, 32B,..., 256B), coarse-grained(384B, 512B,..., 32768B, 49152B, 65536B). 
+Wamalloc uses two sets of size class: small-span(16B, 24B, 32B,..., 256B), large-span(384B, 512B,..., 32768B, 49152B, 65536B). 
 For the memory requests larger than 64KB, Wamalloc will redirect the request to operating system via system call such as mmap.
 
 % classes of allocatable objects
@@ -674,7 +674,7 @@ All small memory requests are served by in-use chunks.
 Chunks in waiting list of the local heap are called waiting chunks. 
 Waiting chunks are the chunks in a partially allocated state. 
 When a thread use up the whole memory blocks in current in-use chunk,
-waiting chunks of the same class size are candidates waiting to be chosen as a new in-use chunk.
+waiting chunks of the same size class are candidates waiting to be chosen as a new in-use chunk.
 
 \textbf{Full chunk}. 
 After several memory requests of a particular size class, 
@@ -755,12 +755,12 @@ a lock is certainly required, indicating a performance descend when lock content
 Thus there exists two different on how to increase the memory space. 
 One solution aims at economic usage of process address space, for example, increasing the space linearly;
 while the other solution aims at reducing the lock contention if possible, for example, increasing the space exponentially. 
-In wamalloc, we use the latter solution for two reasons: 
+In Wamalloc, we use the latter solution for two reasons:
 \begin{enumerate}
     \item With the popularization of 64-bit machines, size of the virtual memory far exceeds the real physical memory an application needs.
 Hence, it is unimportant that an application may take too many virtual memory. 
 In return we can decrease the potential lock contention by acquiring the lock as less as possible.
-    \item Almost all of the modern CPUs support page table mechanism, 
+    \item Almost all of the modern CPU support page table mechanism,
         which means the physical memory is mapped to some virtual address only when an application really needs the physical memory. 
         There is no page mapping at the virtual memory that an application doesn't touch, thus no physical memory is wasted.
 \end{enumerate}
@@ -887,7 +887,7 @@ In this subsection, we will discuss which category metadata previously mentioned
 and how to place them in a hybrid memory system.
 In Wamalloc, metadata include chunk header, local heap and global heap.
 Chunk header belongs to data description category, 
-in which it manages the block informations inside a chunk and some chunk-related data, 
+in which it manages the block information inside a chunk and some chunk-related data,
 such as the count of remaining free blocks, size class of the current chunk,
 chunk owner, chunk state, wear-leveling count of the chunk and so on.
 While local heap and global heap belong to space description,
@@ -1138,7 +1138,7 @@ From the result we can verify that Wamalloc outperforms both glibc and NVMalloc 
 Next, a second benchmark was run in which the program is extended to free all the memory after allocations, 
 the runtime of which was included in the measurement of average allocation latency.
 Allocating and then freeing is a common scenario in most applications, 
-and it is more complicated than just allocating the memory in a multithread environment 
+and it is more complicated than just allocating the memory in a multithreading environment
 for the reason that freeing may cause changes of the state of some chunks or even some movements of chunk from local heap to global heap.
 The evaluation result is shown in Figure~\ref{fig:eval_7}.
 Malloc in Glibc performs better than itself when freeing is involved, 
@@ -1151,7 +1151,7 @@ but the performance still falls behind Wamalloc by a small constant gap.
 \label{fig:eval_7}
 \end{figure}
 
-\subsection{Evalution Summary}
+\subsection{Evaluation Summary}
 
 As demonstrated, 
 the wear-leveling ability of Wamalloc performs better than NVMalloc.
@@ -1173,7 +1173,7 @@ or as a supplement for DRAM exploiting the benefit of the hybrid memory system.
 In the research area of how to extend the endurance of NVM,
 plenty of works have been done at different levels.
 
-At hardware level, Ping zhou et al.\cite{zhou2009durable} proposed a suite of hierarchical techniques to
+At hardware level, Ping Zhou et al.\cite{zhou2009durable} proposed a suite of hierarchical techniques to
 prolong the lifetime of PCM-based main memory: 
 redundant bit-write removal, row shifting, and segment swapping.
 Lei Jiang et al.\cite{jiang2012improving} proposed write truncation (WT) and form switch (FS),
@@ -1210,7 +1210,7 @@ no NVM allocators at the time of writing
 can provide both an accurate wear-leveling policy and a good allocation performance simultaneously.
 Based on the observation, we propose an efficient wear-aware NVM allocator, Wamalloc,
 which uses a thread-cache memory architecture causing nearly no lock contention in critical path,
-and an elaborate hybrid wear-leveling policy to improve lifetime of NVM.
+and an elaborate hybrid wear-leveling policy to improve the lifetime of NVM.
 The experimental results show that
 Wamalloc outperforms NVMalloc in terms of wear-leveling policy, total memory consumption and allocation performance.
 %Wamalloc also outperforms Glibc Malloc in terms of allocation performance.
