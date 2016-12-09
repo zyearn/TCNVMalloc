@@ -496,7 +496,7 @@ It stores bits by heating a nanoscale piece of chalcogenide glass and makes it c
 Specificly, there are two states.
 One is called a crystalline state representing state (1), and the other is called an amorphous state representing state (0).
 
-Besides PCM, the other two alternative technologies(memristor and spin transfer torque) are also completing to be candidates for DRAM.
+Besides PCM, the other two alternative technologies(memristor and spin transfer torque) are also competing to be candidates for DRAM.
 Although these technologies have good characteristics to be the main memory,
 they suffer from different kinds of weakness, such as endurance and asymmetry of read and write latency. 
 For example, memristor may wear-out after $10^8$ writes, while DRAM has an unlimited endurance.
@@ -934,7 +934,7 @@ Based on the discussion above, we summarize the allocation algorithm in the foll
     \State $\text{ch} \gets \text{InUseChunk(}\textit{lh, sc}\text{);}$
     \State $\text{ptr} \gets \text{AllocFromChunk(}\textit{ch}\text{);}$
 
-    \If {$\text{IsCleanChunk(}\textit{ch}\text{)}$}
+    \If {$\text{IsFullChunk(}\textit{ch}\text{)}$}
         \State $\text{StateOf(}\textit{ch}\text{)} \gets \text{FULL;}$
         \State $\text{FindNewChunkToReplaceInuse(}\textit{lh, sc}\text{);}$
         \If {$\text{IsNULL(}\textit{ptr}\text{)}$}
